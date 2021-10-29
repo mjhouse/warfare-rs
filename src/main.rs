@@ -8,7 +8,9 @@ use bevy::{
 use bevy::prelude::*;
 use bevy_tilemap::prelude::*;
 
+mod math;
 mod camera;
+
 mod selection;
 mod state;
 
