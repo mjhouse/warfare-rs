@@ -8,3 +8,4 @@ bevy = "0.5"
 bevy_tilemap = "0.4.0"
 
 coinflip = "0.1.1"
+rand = "0.8.4"

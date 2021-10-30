@@ -10,9 +10,14 @@ use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_tilemap::prelude::*;
 
+use std::array::IntoIter;
+use std::collections::HashMap;
+use std::iter::FromIterator;
+
 mod math;
 mod camera;
 mod area;
+mod generate;
 
 mod selection;
 mod state;
@@ -210,47 +215,33 @@ fn build(
     for mut map in query.iter_mut() {
         map.insert_chunk((0, 0)).unwrap();
 
-        let chunk_width = (map.width().unwrap() * map.chunk_width()) as i32;
-        let chunk_height = (map.height().unwrap() * map.chunk_height()) as i32;
+        let width = (map.width().unwrap() * map.chunk_width()) as i32;
+        let height = (map.height().unwrap() * map.chunk_height()) as i32;
 
         // Then we need to find out what the handles were to our textures we are going to use.
-        let grass_floor: Handle<Texture> = asset_server.get_handle("textures/grass.png");
-        let dirt_floor: Handle<Texture> = asset_server.get_handle("textures/dirt.png");
-        let water_floor: Handle<Texture> = asset_server.get_handle("textures/water.png");
-        let marker_img: Handle<Texture> = asset_server.get_handle("textures/marker.png");
+        let clay: Handle<Texture> = asset_server.get_handle("textures/clay.png");
+        let sand: Handle<Texture> = asset_server.get_handle("textures/sand.png");
+        let silt: Handle<Texture> = asset_server.get_handle("textures/silt.png");
+        let peat: Handle<Texture> = asset_server.get_handle("textures/peat.png");
+        let chalk: Handle<Texture> = asset_server.get_handle("textures/chalk.png");
+        let loam: Handle<Texture> = asset_server.get_handle("textures/loam.png");
 
         let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
-        let grass_index = texture_atlas.get_texture_index(&grass_floor).unwrap();
-        let dirt_index = texture_atlas.get_texture_index(&dirt_floor).unwrap();
-        let _ = texture_atlas.get_texture_index(&water_floor).unwrap();
-        let _ = texture_atlas.get_texture_index(&marker_img).unwrap();
 
-        let mut tiles = vec![];
+        let icons = HashMap::<_, _>::from_iter(IntoIter::new([
+            (Soil::Clay, texture_atlas.get_texture_index(&clay).unwrap()),
+            (Soil::Sand, texture_atlas.get_texture_index(&sand).unwrap()),
+            (Soil::Silt, texture_atlas.get_texture_index(&silt).unwrap()),
+            (Soil::Peat, texture_atlas.get_texture_index(&peat).unwrap()),
+            (Soil::Chalk, texture_atlas.get_texture_index(&chalk).unwrap()),
+            (Soil::Loam, texture_atlas.get_texture_index(&loam).unwrap()), 
+        ]));
 
-        for y in 0..chunk_height {
-            for x in 0..chunk_width {
-                let y = y - chunk_height / 2;
-                let x = x - chunk_width / 2;
+        let areas = generate::random(icons,width,height);
+        let tiles = areas.iter().map(|a| a.tile()).collect::<Vec<Tile<_>>>();
+        state.add_all(areas);
 
-                let area = Area::create()
-                    .with_texture(grass_index)
-                    .with_location((x,y))
-                    .with_biome(Biome::Grassland)
-                    .with_soil(Soil::Clay)
-                    .with_moisture(25)
-                    .with_rocks(25)
-                    .with_fertility(25)
-                    .with_elevation(1000.0)
-                    .with_temperature(22.0)
-                    .build();
-
-                tiles.push(area.tile());
-                state.add(area);
-            }
-        }
-
-        // Now we pass all the tiles to our map.
-        map.insert_tiles(tiles.clone()).unwrap();
+        map.insert_tiles(tiles).unwrap();
         map.spawn_chunk((0, 0)).unwrap();
         state.loaded = true;
     }

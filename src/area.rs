@@ -2,12 +2,17 @@ use std::sync::atomic::{AtomicUsize,Ordering};
 use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
 
+use std::fmt::{Display,Formatter,Result,Debug};
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
+
 static ID: AtomicUsize = AtomicUsize::new(0);
 
 pub type Location = (i32,i32);
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq,Eq,Hash)]
 pub enum Biome {
+    None,     // no biome value
     Grassland,// high movement, low cover, med forage
     Forest,   // low movement, provides cover
     Desert,   // med move, heatstroke?
@@ -15,8 +20,9 @@ pub enum Biome {
     Aquatic,  // freshwater or marine, very low move
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq,Eq,Hash)]
 pub enum Soil {
+    None,  // no soil value
     Clay,  // holds water, bad fertility
     Sand,  // low nutrients, low moisture, drain quickly
     Silt,  // erodes in rain, med moisture, med fertility
@@ -33,15 +39,54 @@ impl Default for Soil {
     fn default() -> Self { Self::Clay }
 }
 
-impl std::fmt::Display for Biome {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+impl Display for Biome {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        Debug::fmt(self, f)
     }
 }
 
-impl std::fmt::Display for Soil {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+impl Display for Soil {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        Debug::fmt(self, f)
+    }
+}
+
+impl From<u8> for Biome {
+    fn from(v: u8) -> Self {
+        match v {
+            0 => Biome::Grassland,
+            1 => Biome::Forest,
+            2 => Biome::Desert,
+            3 => Biome::Tundra,
+            4 => Biome::Aquatic,
+            _ => Biome::None,
+        }
+    }
+}
+
+impl From<u8> for Soil {
+    fn from(v: u8) -> Self {
+        match v {
+            0 => Soil::Clay,
+            1 => Soil::Sand,
+            2 => Soil::Silt,
+            3 => Soil::Peat,
+            4 => Soil::Chalk,
+            5 => Soil::Loam,
+            _ => Soil::None,
+        }
+    }
+}
+
+impl Distribution<Biome> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Biome {
+        rng.gen_range::<u8,_>(0..5).into()
+    }
+}
+
+impl Distribution<Soil> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Soil {
+        rng.gen_range::<u8,_>(0..6).into()
     }
 }
 
