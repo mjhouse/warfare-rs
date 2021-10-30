@@ -1,9 +1,8 @@
 use bevy::input::mouse::{MouseButton};
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
-use bevy_tilemap::prelude::*;
 
-use crate::state::GameState;
+use crate::state::State;
 use crate::camera::Camera;
 use crate::math::MidRound;
 
@@ -18,6 +17,12 @@ pub struct Selection {
     pub selected: (i32,i32),
     /// the button that triggers selection
 	pub button: MouseButton,
+}
+
+impl Selection {
+    pub fn on_selected(&self) -> bool {
+        self.selected == self.hovered
+    }
 }
 
 impl Default for Selection {
@@ -105,13 +110,13 @@ fn from_tile_coords(x: i32, y: i32) -> (f32,f32) {
 /// Find the current position of the mouse cursor
 /// when it moves and update the selection.
 fn selected_position_system(
-    state: ResMut<GameState>,
+    state: ResMut<State>,
     windows: Res<Windows>,
     camera: Query<&Transform, With<Camera>>,
 	mut query: Query<&mut Selection>,
     
 ) {
-    if !state.map_loaded {
+    if !state.loaded {
         return;
     }
 
@@ -139,13 +144,13 @@ fn selected_position_system(
 /// Find the hovered tile when the mouse cursor moves 
 /// and update the selection.
 fn selected_hovered_system(
-    state: ResMut<GameState>,
+    state: ResMut<State>,
     windows: Res<Windows>,
 	mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
     
 ) {
-    if !state.map_loaded {
+    if !state.loaded {
         return;
     }
 
@@ -171,32 +176,48 @@ fn selected_hovered_system(
 }
 
 fn selected_highlight_system(
-    state: ResMut<GameState>,
+    state: ResMut<State>,
     windows: Res<Windows>,
     inputs: Res<Input<MouseButton>>,
 	mut sel_query: Query<&mut Selection>,    
     mut map_query: Query<&mut Tilemap>,
+    mut dbg_query: Query<&mut Text, With<crate::DiagText>>,
 ) {
-    if !state.map_loaded {
+    if !state.loaded {
         return;
     }
 
     let window = windows.get_primary().unwrap();
     let mut selection = sel_query.single_mut().expect("Need selection");
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
+    let mut display = dbg_query.single_mut().expect("Need diagnostics display");
 
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
-        if inputs.pressed(selection.button) {
-            tilemap.clear_tile(selection.selected,2);
+        if inputs.pressed(selection.button) && !selection.on_selected() {
             selection.selected = selection.hovered;
+            let area = &state.areas[&selection.selected];
 
-            tilemap.insert_tile(Tile {
-                point: selection.selected,
-                sprite_order: 2,
-                sprite_index: state.indices[0],
-                ..Default::default()
-            });
+            display.sections[1].value = format!("id={}, pos={:?},\n",area.id(),area.location());
+            display.sections[3].value = format!("{},\n",area.texture());
+            display.sections[5].value = format!("{},\n",area.biome());
+            display.sections[7].value = format!("{},\n",area.soil());
+            display.sections[9].value = format!("{}m,\n",area.elevation());
+            display.sections[11].value = format!("{}C,\n",area.temperature());
+            display.sections[13].value = format!("{}%,\n",area.fertility());
+            display.sections[15].value = format!("{}%,\n",area.rocks());
+            display.sections[17].value = format!("{}%,\n",area.moisture());
+
+            // tilemap.clear_tile(selection.selected,2);
+            // selection.selected = selection.hovered;
+
+            // // create a new selected tile graphic
+            // tilemap.insert_tile(Tile {
+            //     point: selection.selected,
+            //     sprite_order: 2,
+            //     sprite_index: state.indices[0],
+            //     ..Default::default()
+            // });
         }
     }
 }
