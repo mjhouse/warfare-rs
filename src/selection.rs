@@ -148,7 +148,6 @@ fn selected_hovered_system(
     windows: Res<Windows>,
 	mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
-    
 ) {
     if !state.loaded {
         return;
@@ -195,6 +194,7 @@ fn selected_highlight_system(
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
+            tilemap.clear_tile(selection.selected,1);
             selection.selected = selection.hovered;
             let area = &state.areas[&selection.selected];
 
@@ -208,16 +208,13 @@ fn selected_highlight_system(
             display.sections[15].value = format!("{}%,\n",area.rocks());
             display.sections[17].value = format!("{}%,\n",area.moisture());
 
-            // tilemap.clear_tile(selection.selected,2);
-            // selection.selected = selection.hovered;
-
-            // // create a new selected tile graphic
-            // tilemap.insert_tile(Tile {
-            //     point: selection.selected,
-            //     sprite_order: 2,
-            //     sprite_index: state.indices[0],
-            //     ..Default::default()
-            // });
+            // move marker to new location
+            tilemap.insert_tile(Tile {
+                point: selection.selected,
+                sprite_order: 1,
+                sprite_index: state.mark,
+                tint: Color::WHITE,
+            });
         }
     }
 }

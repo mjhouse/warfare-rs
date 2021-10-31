@@ -10,6 +10,26 @@ static ID: AtomicUsize = AtomicUsize::new(0);
 
 pub type Location = (i32,i32);
 
+pub mod bounds {
+    pub const MAX_ELEV: f32 = 8848.0; // Mt Everest
+    pub const MIN_ELEV: f32 = -414.0; // Dead Sea
+    
+    pub const MAX_TEMP: f32 = 56.6;
+    pub const MIN_TEMP: f32 = -89.2;
+}
+
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+pub enum Attribute {
+    None,
+    Biome,
+    Soil,
+    Elevation,
+    Temperature,
+    Fertility,
+    Rocks,
+    Moisture,
+}
+
 #[derive(Debug,Clone,PartialEq,Eq,Hash)]
 pub enum Biome {
     None,     // no biome value
@@ -180,9 +200,21 @@ impl Area {
     }
 
     pub fn build(mut self) -> Self {
-        self.moisture = self.moisture.min(100);
-        self.rocks = self.rocks.min(100);
-        self.fertility = self.fertility.min(100);
+        use bounds::*;
+
+        self.moisture = self.moisture
+            .min(100);
+        self.rocks = self.rocks
+            .min(100);
+        self.fertility = self.fertility
+            .min(100);
+        self.elevation = self.elevation
+            .min(MAX_ELEV)
+            .max(MIN_ELEV);
+        self.temperature = self.temperature
+            .min(MAX_TEMP)
+            .max(MIN_TEMP);
+
         self
     }
 
@@ -265,5 +297,24 @@ mod tests {
         assert_eq!(a1.moisture(), 100);
         assert_eq!(a1.rocks(), 100);
         assert_eq!(a1.fertility(), 100);
+    }
+
+    #[test]
+    fn test_values_are_capped() {
+        let a1 = Area::create()
+            .with_temperature(99999.999)
+            .with_elevation(99999.999)
+            .build();
+
+        let a2 = Area::create()
+            .with_temperature(-9999.999)
+            .with_elevation(-9999.999)
+            .build();
+
+        assert!(a1.elevation() <= bounds::MAX_ELEV);
+        assert!(a1.temperature() <= bounds::MAX_TEMP);
+
+        assert!(a2.elevation() >= bounds::MIN_ELEV);
+        assert!(a2.temperature() >= bounds::MIN_TEMP);
     }
 }

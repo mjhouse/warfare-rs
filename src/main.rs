@@ -18,6 +18,7 @@ mod math;
 mod camera;
 mod area;
 mod generate;
+mod controls;
 
 mod selection;
 mod state;
@@ -32,7 +33,7 @@ fn main() {
             title: "Warfare".to_string(),
             width: 1036.,
             height: 1036.,
-            vsync: false,
+            vsync: true,
             resizable: true,
             mode: WindowMode::Windowed,
             ..Default::default()
@@ -50,6 +51,10 @@ fn main() {
         // set up selection plugin/system
         .add_plugin(selection::SelectionPlugin)
         .add_startup_system(selection::setup.system())
+
+        // set up controls plugin/system
+        .add_plugin(controls::ControlsPlugin)
+        .add_startup_system(controls::setup.system())
         
         .add_startup_system(setup.system())
         .add_startup_system(diag.system())
@@ -69,6 +74,7 @@ struct WarefareResources {
 }
 
 pub struct DiagText;
+pub struct OverText;
 
 fn setup(
     mut _commands: Commands,
@@ -103,7 +109,7 @@ fn load(
             let tilemap = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(200, 200, 1)
+                .chunk_dimensions(32, 32, 1)
                 .texture_dimensions(175, 200)
                 .add_layer(
                     TilemapLayer {
@@ -199,6 +205,27 @@ fn diag(
         },
         ..Default::default()
     }).insert(DiagText);
+
+    commands.spawn_bundle(TextBundle {
+        style: Style {
+            align_self: AlignSelf::FlexStart,
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        text: Text {
+            sections: vec![
+                TextSection { value: "overlay: biome=1, soil=2, elevation=3, temp=4, fert=5, rocks=6, water=7, none=0|esc\n".into(), style: style.clone() },
+                TextSection { value: "current: none".into(), style: style.clone() },
+            ],
+            ..Default::default()
+        },
+        ..Default::default()
+    }).insert(OverText);
 }
 
 
@@ -225,8 +252,11 @@ fn build(
         let peat: Handle<Texture> = asset_server.get_handle("textures/peat.png");
         let chalk: Handle<Texture> = asset_server.get_handle("textures/chalk.png");
         let loam: Handle<Texture> = asset_server.get_handle("textures/loam.png");
+        let blank: Handle<Texture> = asset_server.get_handle("textures/blank.png");
+        let marker: Handle<Texture> = asset_server.get_handle("textures/marker.png");
 
         let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
+        let mark = texture_atlas.get_texture_index(&marker).unwrap();
 
         let icons = HashMap::<_, _>::from_iter(IntoIter::new([
             (Soil::Clay, texture_atlas.get_texture_index(&clay).unwrap()),
@@ -237,9 +267,20 @@ fn build(
             (Soil::Loam, texture_atlas.get_texture_index(&loam).unwrap()), 
         ]));
 
-        let areas = generate::random(icons,width,height);
-        let tiles = areas.iter().map(|a| a.tile()).collect::<Vec<Tile<_>>>();
+        let areas = generate::noise(icons,width,height);
+        let mut tiles = areas.iter().map(|a| a.tile()).collect::<Vec<Tile<_>>>();
+
+        state.blank = texture_atlas.get_texture_index(&blank).unwrap();
+        state.mark = mark;
+
         state.add_all(areas);
+
+        tiles.push(Tile {
+            point: (0,0).into(),
+            sprite_order: 1,
+            sprite_index: state.mark,
+            tint: Color::WHITE,
+        });
 
         map.insert_tiles(tiles).unwrap();
         map.spawn_chunk((0, 0)).unwrap();
