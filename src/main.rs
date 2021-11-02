@@ -267,7 +267,7 @@ fn build(
             (Soil::Loam, texture_atlas.get_texture_index(&loam).unwrap()), 
         ]));
 
-        let areas = generate::noise(icons,width,height);
+        let areas = generate::weighted(icons,width,height);
         let mut tiles = areas.iter().map(|a| a.tile()).collect::<Vec<Tile<_>>>();
 
         state.blank = texture_atlas.get_texture_index(&blank).unwrap();

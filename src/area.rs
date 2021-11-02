@@ -146,6 +146,34 @@ pub struct Area {
     temperature: f32,
 }
 
+/*
+conceptually, area attributes are  considered to be part of different "layers" where 
+later attributes (in "higher" layers) depend on earlier, more basic attributes. At the 
+base is location, which is always fixed. Attributes that rely on location are considering
+the attributes of neighboring regions during generation.
+
+Second-layer attributes are determined with some sort of mathematical noise calculation and
+optionally neighboring tiles.
+
+Third-layer attributes are set using some combination of second layer attribute values.
+
+layer #1: 
+    location:    fixed
+
+layer #2:
+    elevation:   noise + location
+    biome:       noise + location
+    
+layer #3:
+    soil:        biome + location
+    moisture:    biome + location
+    temperature: elevation + location
+
+layer #4:
+    rocks:       elevation + location
+    fertility:   soil + moisture - elevation
+*/
+
 impl Area {
     pub fn create() -> Self {
         Self {
