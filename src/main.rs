@@ -109,7 +109,7 @@ fn load(
             let tilemap = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(32, 32, 1)
+                .chunk_dimensions(30, 30, 1)
                 .texture_dimensions(175, 200)
                 .add_layer(
                     TilemapLayer {

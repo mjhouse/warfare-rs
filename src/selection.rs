@@ -196,25 +196,25 @@ fn selected_highlight_system(
         if inputs.pressed(selection.button) && !selection.on_selected() {
             tilemap.clear_tile(selection.selected,1);
             selection.selected = selection.hovered;
-            let area = &state.areas[&selection.selected];
-
-            display.sections[1].value = format!("id={}, pos={:?},\n",area.id(),area.location());
-            display.sections[3].value = format!("{},\n",area.texture());
-            display.sections[5].value = format!("{},\n",area.biome());
-            display.sections[7].value = format!("{},\n",area.soil());
-            display.sections[9].value = format!("{}m,\n",area.elevation());
-            display.sections[11].value = format!("{}C,\n",area.temperature());
-            display.sections[13].value = format!("{}%,\n",area.fertility());
-            display.sections[15].value = format!("{}%,\n",area.rocks());
-            display.sections[17].value = format!("{}%,\n",area.moisture());
-
-            // move marker to new location
-            tilemap.insert_tile(Tile {
-                point: selection.selected,
-                sprite_order: 1,
-                sprite_index: state.mark,
-                tint: Color::WHITE,
-            });
+            if let Some(area) = state.areas.get(&selection.selected) {
+                display.sections[1].value = format!("id={}, pos={:?},\n",area.id(),area.location());
+                display.sections[3].value = format!("{},\n",area.texture());
+                display.sections[5].value = format!("{},\n",area.biome());
+                display.sections[7].value = format!("{},\n",area.soil());
+                display.sections[9].value = format!("{}m,\n",area.elevation());
+                display.sections[11].value = format!("{}C,\n",area.temperature());
+                display.sections[13].value = format!("{}%,\n",area.fertility());
+                display.sections[15].value = format!("{}%,\n",area.rocks());
+                display.sections[17].value = format!("{}%,\n",area.moisture());
+    
+                // move marker to new location
+                tilemap.insert_tile(Tile {
+                    point: selection.selected,
+                    sprite_order: 1,
+                    sprite_index: state.mark,
+                    tint: Color::WHITE,
+                });
+            }
         }
     }
 }
