@@ -219,6 +219,28 @@ fn find_moisture(moisture: &Vec<u8>, index: i32, r: i32, k: i32) -> u8 {
     value
 }
 
+fn get_elevation(elevation: &Vec<f32>, index: i32) -> f32 {
+    use std::convert::TryFrom;
+    let mut value = f32::MAX;
+    if let Ok(i) = usize::try_from(index){ // non-negative
+        if let Some(m) = elevation.get(i).cloned() { // position exists
+            value = m;
+        }
+    }
+    value
+}
+
+fn get_moisture(moisture: &Vec<u8>, index: i32) -> u8 {
+    use std::convert::TryFrom;
+    let mut value = 100;
+    if let Ok(i) = usize::try_from(index){ // non-negative
+        if let Some(m) = moisture.get(i).cloned() { // position exists
+            value = m.min(100).max(0);
+        }
+    }
+    value
+}
+
 fn generate_moisture(width: i32, height: i32, initial: u8, elevation: &Vec<f32>) -> Vec<u8> {
     use std::convert::TryFrom;
     use std::cmp::Ordering;
@@ -259,62 +281,67 @@ fn generate_moisture(width: i32, height: i32, initial: u8, elevation: &Vec<f32>)
             let k3 = br / width;
             let k4 = bl / width;
             let k5 = ml / width;
-    
+
             // create a local group of ( index, elevation, moisture ) triplets
-            let mut local = vec![
-                ( pt, find_elevation(&elevation,pt,r1,r1), find_moisture(&moisture,pt,r1,r1) ),
-                ( tl, find_elevation(&elevation,tl,r0,k0), find_moisture(&moisture,tl,r0,k0) ),
-                ( tr, find_elevation(&elevation,tr,r0,k1), find_moisture(&moisture,tr,r0,k1) ),
-                ( mr, find_elevation(&elevation,mr,r1,k2), find_moisture(&moisture,mr,r1,k2) ),
-                ( br, find_elevation(&elevation,br,r2,k3), find_moisture(&moisture,br,r2,k3) ),
-                ( bl, find_elevation(&elevation,bl,r2,k4), find_moisture(&moisture,bl,r2,k4) ),
-                ( ml, find_elevation(&elevation,ml,r1,k5), find_moisture(&moisture,ml,r1,k5) ),
-            ];
-    
-            // find the lowest elevation point
-            let mut lowest = local
-                .iter()
-                .min_by(|a,b| a.1
-                    .partial_cmp(&b.1)
-                    .unwrap())
-                .cloned()
-                .unwrap();
-    
-            // keep all triplets that equal the lowest and have < max moisture.
-            local.retain(|v| (v.1 - lowest.1) < 0.1 && v.2 <= 100);
-    
-            // get moisture for the current point
-            let mut m = moisture[i];
-            let k = m / local.len() as u8;
-    
-            // divide the current point's moisture among the local
-            // group of lowest points
-            if local.len() > 0 {
-                for point in local.iter() {
-                    // find the remaining space in tile
-                    let r = 100 - point.2.min(100);
+            let mut local = vec![];
+            
+            // only include triplet if the point (tl, tr etc) is on the board (in expected row)
+            if r0 == k0 { local.push(( tl, get_elevation(&elevation,tl), get_moisture(&moisture,tl) )); }
+            if r0 == k1 { local.push(( tr, get_elevation(&elevation,tr), get_moisture(&moisture,tr) )); }
+            if r1 == k2 { local.push(( mr, get_elevation(&elevation,mr), get_moisture(&moisture,mr) )); }
+            if r2 == k3 { local.push(( br, get_elevation(&elevation,br), get_moisture(&moisture,br) )); }
+            if r2 == k4 { local.push(( bl, get_elevation(&elevation,bl), get_moisture(&moisture,bl) )); }
+            if r1 == k5 { local.push(( ml, get_elevation(&elevation,ml), get_moisture(&moisture,ml) )); }
 
-                    // select either the remainder or portion
-                    let n = r.min(k);
+            // get elevation and moisture for current point
+            let e = get_elevation(&elevation,pt);
+            let mut m = get_moisture(&moisture,pt);
 
-                    // add the change to the total
-                    let t = point.2 + n;
+            // filter out triplets that are above the current tile
+            // or are 100% water.
+            local = local
+                .into_iter()
+                .filter(|l| l.1 < e && l.2 < 100)
+                .collect::<Vec<(i32,f32,u8)>>();
 
-                    // update the moisture for the neighbor
-                    update_moisture(&mut moisture,point.0,t,0,0);
+            // sort lowest elevation to highest
+            local.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
 
-                    // subtract from total
-                    m -= n;
+            for p in local.iter_mut() {
+                // find the remaining space in tile
+                let r = 100 - p.2.min(100);
 
-                    // keep a measure of the amount distributed
-                    if point.0 != pt {
+                // select either the remainder or all
+                let n = r.min(m);
+
+                // add the change to the total
+                let t = p.2 + n;
+
+                // update water for the local point
+                if let Ok(j) = usize::try_from(p.0){
+                    if let Some(v) = moisture.get_mut(j) {
+                        // subtract from total
+                        m -= n;
+
+                        // add to value for point
+                        *v = t;
+
+                        // update metrics
                         moved += n as usize;
                     }
                 }
+
+                // exit early if all moisture has
+                // been distributed
+                if m == 0 { 
+                    break; 
+                }
             }
 
-            // put the remainder back on the current point
-            update_moisture(&mut moisture,pt,m,0,0);
+            // set the remainder back to the current point
+            if let Some(v) = moisture.get_mut(i) {
+                *v = m;
+            }
         }
 
         if cycle > 20 || moved == 0 {
@@ -332,8 +359,8 @@ pub fn weighted(icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area
     let mut results = vec![];
     // let mut rng = rand::thread_rng();
     
-    let elevations = generate_elevation(width,height,12345678,1.0);
-    let moistures = generate_moisture(width,height,32,&elevations);
+    let elevations = generate_elevation(width,height,12345678,0.5);
+    let moistures = generate_moisture(width,height,8,&elevations);
 
     let mut c = 0;
 
