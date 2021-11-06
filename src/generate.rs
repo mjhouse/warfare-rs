@@ -4,219 +4,57 @@ use crate::area::{Area,Soil,Biome,bounds};
 use rand::Rng;
 use noise::{Perlin,NoiseFn,Clamp,Seedable};
 
-pub fn flattened(icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area> {
-    let mut results = vec![];
-    let mut rng = rand::thread_rng();
+fn generate_elevation(width: i32, height: i32, seed: u32, factor: f32) -> Vec<f32> {
+    let w = width as f64;
+    let h = height as f64;
 
-    let kind = Soil::Clay;
+    // offset values from [-1,1] to [1,2]
+    let offset = noise::Constant::new(1.0);
 
-    for y in 0..height {
-        for x in 0..width {
-            let y = y - height / 2;
-            let x = x - width / 2;
+    // set up ridges/mountains
+    let base1 = noise::RidgedMulti::new().set_seed(seed);
 
-            let location = (x,y);
-            let biome = rng.gen();
-            let soil = kind.clone();
-            let moisture = rng.gen::<u8>().min(100);
-            let rocks = rng.gen::<u8>().min(100);
-            let fertility = rng.gen::<u8>().min(100);
-            let elevation = rng.gen_range::<f32,_>(bounds::MIN_ELEV..bounds::MAX_ELEV);
-            let temperature = rng.gen_range::<f32,_>(bounds::MIN_TEMP..bounds::MAX_TEMP);
-            let texture = icons[&soil];
+    let ridges = noise::ScalePoint::new(
+        noise::Add::new(&base1,&offset))
+        .set_x_scale(0.015 / (w / 30.0))
+        .set_y_scale(0.015 / (h / 30.0));
 
-            let area = Area::create()
-                .with_texture(texture)
-                .with_location(location)
-                .with_biome(biome)
-                .with_soil(soil)
-                .with_moisture(moisture)
-                .with_rocks(rocks)
-                .with_fertility(fertility)
-                .with_elevation(elevation)
-                .with_temperature(temperature)
-                .build();
 
-            results.push(area);
-        }
-    }
+    // set up rolling hills
+    let base2 = noise::SuperSimplex::new().set_seed(seed);
 
-    results
-}
+    let hills = noise::ScalePoint::new(
+        noise::Add::new(&base2,&offset))
+        .set_x_scale(0.015)
+        .set_y_scale(0.015);
 
-pub fn random(icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area> {
-    let mut results = vec![];
-    let mut rng = rand::thread_rng();
+    // multiply noise together for final generator
+    let noise = noise::Multiply::new(&ridges,&hills);
 
-    for y in 0..height {
-        for x in 0..width {
-            let y = y - height / 2;
-            let x = x - width / 2;
-
-            let location = (x,y);
-            let biome = rng.gen();
-            let soil = rng.gen();
-            let moisture = rng.gen::<u8>().min(100);
-            let rocks = rng.gen::<u8>().min(100);
-            let fertility = rng.gen::<u8>().min(100);
-            let elevation = rng.gen_range::<f32,_>(bounds::MIN_ELEV..bounds::MAX_ELEV);
-            let temperature = rng.gen_range::<f32,_>(bounds::MIN_TEMP..bounds::MAX_TEMP);
-            let texture = icons[&soil];
-
-            let area = Area::create()
-                .with_texture(texture)
-                .with_location(location)
-                .with_biome(biome)
-                .with_soil(soil)
-                .with_moisture(moisture)
-                .with_rocks(rocks)
-                .with_fertility(fertility)
-                .with_elevation(elevation)
-                .with_temperature(temperature)
-                .build();
-
-            results.push(area);
-        }
-    }
-
-    results
-}
-
-pub fn noise(icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area> {
-    let mut results = vec![];
-    let mut rng = rand::thread_rng();
-
-    let mut png = Perlin::new();
-    let mut noise = vec![];
-
-    png.set_seed(rng.gen());
-
-    for y in 0..height {
-        for x in 0..width {
-            let y = y - height / 2;
-            let x = x - width / 2;
-            let v = png.get([
-                x as f64 * std::f64::consts::PI,
-                y as f64 * std::f64::consts::PI
-            ]);
-
-            noise.push((v * 5.0).round().abs() as u8);
-        }
-    }
-
-    for y in 0..height {
-        for x in 0..width {
-            let y = y - height / 2;
-            let x = x - width / 2;
-
-            let k = noise.pop().unwrap_or(0);
-
-            let location = (x,y);
-            let biome = rng.gen();
-            let soil = k.into();
-            let moisture = rng.gen::<u8>().min(100);
-            let rocks = rng.gen::<u8>().min(100);
-            let fertility = rng.gen::<u8>().min(100);
-            let elevation = rng.gen_range::<f32,_>(bounds::MIN_ELEV..bounds::MAX_ELEV);
-            let temperature = rng.gen_range::<f32,_>(bounds::MIN_TEMP..bounds::MAX_TEMP);
-            let texture = icons.get(&soil).expect("icon doesn't exist");
-
-            let area = Area::create()
-                .with_texture(*texture)
-                .with_location(location)
-                .with_biome(biome)
-                .with_soil(soil)
-                .with_moisture(moisture)
-                .with_rocks(rocks)
-                .with_fertility(fertility)
-                .with_elevation(elevation)
-                .with_temperature(temperature)
-                .build();
-
-            results.push(area);
-        }
-    }
-
-    results
-}
-
-fn generate_perlin(noise: &Perlin, x: i32, y: i32, scale: f64) -> f32 {
-    let mut v = noise.get([
-        (x as f64 * std::f64::consts::PI) * scale,
-        (y as f64 * std::f64::consts::PI) * scale,
-    ]) as f32;
-
-    // normalize between 0.0 and 1.0
-    v = (v + 1.0) / 2.0;
-
-    v
-}
-
-fn generate_elevation(width: i32, height: i32, seed: u32, mut factor: f32) -> Vec<f32> {
     let mut elevation = vec![];
-    let mut png = Perlin::new()
-        .set_seed(seed);
+
+    let max = bounds::MAX_ELEV;
+    let min = bounds::MIN_ELEV;
 
     for y in 0..height {
         for x in 0..width {
-            let y = y - height / 2;
-            let x = x - width / 2;
+            let mut v = noise.get([
+                x as f64 * std::f64::consts::PI,
+                y as f64 * std::f64::consts::PI,
+            ]) as f32;
 
-            let v1 = generate_perlin(&png,x,y,1.0/50.0);
-            let v2 = generate_perlin(&png,x,y,1.0/25.0);
-            let v3 = generate_perlin(&png,x,y,1.0/12.5);
-            let v4 = generate_perlin(&png,x,y,1.0/6.25);
+            // normalize between 0 and 1
+            v = v / 4.0;
 
-            let mn = bounds::MIN_ELEV;
-            let mx = bounds::MAX_ELEV;
+            // scale between min and max
+            v = (v * (max + min.abs())) - min.abs();
 
-            let v = (v1/1.0 + v2/2.0 + v3/4.0 + v4/6.0)/4.0;
-            let f = factor.min(1.0).max(0.0);
-
-            let v = (v * (mx + mn.abs())) - mn.abs();
-
-            elevation.push(v * f);
+            // scale by given factor and add
+            elevation.push(v * factor);
         }
     }
 
     elevation
-}
-
-fn update_moisture(moisture: &mut Vec<u8>, index: i32, value: u8, r: i32, k: i32) {
-    use std::convert::TryFrom;
-    if r == k { // in correct row
-        if let Ok(i) = usize::try_from(index){
-            if let Some(m) = moisture.get_mut(i) {
-                *m = value;
-            }
-        }
-    }
-}
-
-fn find_elevation(elevation: &Vec<f32>, index: i32, r: i32, k: i32) -> f32 {
-    use std::convert::TryFrom;
-    let mut value = f32::MAX;
-    if r == k { // in correct row
-        if let Ok(i) = usize::try_from(index){ // non-negative
-            if let Some(m) = elevation.get(i).cloned() { // position exists
-                value = m;
-            }
-        }
-    }
-    value
-}
-
-fn find_moisture(moisture: &Vec<u8>, index: i32, r: i32, k: i32) -> u8 {
-    use std::convert::TryFrom;
-    let mut value = 100;
-    if r == k { // in correct row
-        if let Ok(i) = usize::try_from(index){ // non-negative
-            if let Some(m) = moisture.get(i).cloned() { // position exists
-                value = m.min(100).max(0);
-            }
-        }
-    }
-    value
 }
 
 fn get_elevation(elevation: &Vec<f32>, index: i32) -> f32 {
@@ -359,7 +197,7 @@ pub fn weighted(icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area
     let mut results = vec![];
     // let mut rng = rand::thread_rng();
     
-    let elevations = generate_elevation(width,height,12345678,0.5);
+    let elevations = generate_elevation(width,height,789654,0.5);
     let moistures = generate_moisture(width,height,8,&elevations);
 
     let mut c = 0;

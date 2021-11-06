@@ -165,9 +165,9 @@ layer #2:
     biome:       noise + location
     
 layer #3:
-    soil:        biome + location
-    moisture:    biome + location
-    temperature: elevation + location
+    moisture:    elevation
+    soil:        biome + elevation
+    temperature: elevation + noise
 
 layer #4:
     rocks:       elevation + location
