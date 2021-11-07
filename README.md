@@ -4,7 +4,7 @@ This is the codebase for a multiplayer, 2d, turn-based strategy wargame tentativ
 
 ## Proposed Features
 
-* Procedurally generated maps up to 1000x1000 tiles (62500 sq/mi)
+* Procedurally generated maps up to 1000x1000 tiles (406k sq/mi)
 * Seasons and day/night cycles that affect the environment
 * Simulated plant growth, water cycles etc.
 * Units that are effected by terrain, morale, accident rates, logistic concerns, etc.
