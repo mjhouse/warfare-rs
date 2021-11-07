@@ -55,6 +55,8 @@ Units contain some number of soldiers and a large number of attributes that modi
 * Vehicles
 * Ammunition
 * Morale
+* Veterancy
+* Accuracy
 
 Some of these attributes rely on others while some are entirely based on the affects of the environment. Readiness, for example, is the number of soldiers that are healthy and equipped for combat- increased accident and illness rates because of difficult terrain or injuries from combat would reduce this attribute.
 
