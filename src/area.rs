@@ -51,6 +51,10 @@ pub enum Soil {
     Loam,  // high fert, med moisture
 }
 
+impl Default for Attribute {
+    fn default() -> Self { Self::None }
+}
+
 impl Default for Biome {
     fn default() -> Self { Self::Grassland }
 }
@@ -60,6 +64,12 @@ impl Default for Soil {
 }
 
 impl Display for Biome {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        Debug::fmt(self, f)
+    }
+}
+
+impl Display for Attribute {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Debug::fmt(self, f)
     }

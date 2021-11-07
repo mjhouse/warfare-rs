@@ -5,6 +5,7 @@ edition = "2018"
 
 [dependencies]
 bevy = "0.5"
+bevy_egui = "0.7"
 bevy_tilemap = "0.4.0"
 
 rand = "0.8.4"

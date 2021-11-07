@@ -2,11 +2,27 @@ use std::collections::hash_map::HashMap;
 use crate::area::{Location,Area,Attribute,bounds};
 
 #[derive(Default, Clone)]
-pub struct State {
-    pub areas: HashMap<Location,Area>,
-    pub loaded: bool,
+pub struct Terrain {
+    pub selected: Area,
+    pub overlay: Attribute,
+    pub seed: String,
+    pub water: u8,
+    pub mountains: f32,
+    pub update: bool,
+}
+
+#[derive(Default, Clone)]
+pub struct Icons {
     pub blank: usize,
     pub mark: usize,
+}
+
+#[derive(Default, Clone)]
+pub struct State {
+    pub areas: HashMap<Location,Area>,
+    pub terrain: Terrain,
+    pub icons: Icons,
+    pub loaded: bool,
 }
 
 impl State {
@@ -23,7 +39,7 @@ impl State {
     pub fn get_texture(&self, loc: &Location) -> usize {
         match self.areas.get(loc) {
             Some(a) => a.texture(),
-            None => self.blank,
+            None => self.icons.blank,
         }
     }
 
