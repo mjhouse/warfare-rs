@@ -3,7 +3,8 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::state::State;
-use crate::area::Attribute;
+use crate::area::{Attribute,bounds};
+use crate::spectrum::Spectrum;
 
 pub struct ControlsPlugin;
 
@@ -12,13 +13,83 @@ pub struct Controls {
     pub update: bool,
 }
 
-fn overlay_system(
+fn overlay_setup_system(
+    mut state: ResMut<State>,
+) {
+    if state.overlay.is_empty() {
+        let biome = Spectrum::new()
+            .with_start_color(0.6944445,1.0,0.5,1.0)
+            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let soil = Spectrum::new()
+            .with_start_color(0.6944445,1.0,0.5,1.0)
+            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let elevation = Spectrum::new()
+            .with_start_color(0.6944445,1.0,0.5,1.0)
+            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let temperature = Spectrum::new()
+            .with_start_color(250.0/360.0,0.8,0.5,1.0)
+            .with_end_color(360.0/360.0,0.8,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let fertility = Spectrum::new()
+            .with_start_color(0.6944445,1.0,0.5,1.0)
+            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let rocks = Spectrum::new()
+            .with_start_color(0.6944445,1.0,0.5,1.0)
+            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let moisture = Spectrum::new()
+            .with_start_color(0.472222222,1.0,0.5,1.0)
+            .with_end_color(0.666666667,1.0,0.5,1.0)
+            .with_start_value(0.0)
+            .with_end_value(1.0)
+            .finish();
+
+        let none = Spectrum::empty();
+
+        state.overlay.insert(Attribute::Biome,biome);
+        state.overlay.insert(Attribute::Soil,soil);
+        state.overlay.insert(Attribute::Elevation,elevation);
+        state.overlay.insert(Attribute::Temperature,temperature);
+        state.overlay.insert(Attribute::Fertility,fertility);
+        state.overlay.insert(Attribute::Rocks,rocks);
+        state.overlay.insert(Attribute::Moisture,moisture);
+        state.overlay.insert(Attribute::None,none);
+    }
+}
+
+fn overlay_update_system(
     mut state: ResMut<State>,
     mut keys: EventReader<KeyboardInput>,
 	mut ctl_query: Query<&mut Controls>,
     mut map_query: Query<&mut Tilemap>,
 ) {
     if !state.loaded {
+        return;
+    }
+
+    if state.overlay.is_empty() {
         return;
     }
 
@@ -72,50 +143,53 @@ fn overlay_system(
         let width = (tilemap.width().unwrap() * tilemap.chunk_width()) as i32;
         let height = (tilemap.height().unwrap() * tilemap.chunk_height()) as i32;
 
-        let tint = match state.terrain.overlay {
-            Attribute::Biome => Color::hex("9a10b5").unwrap(),
-            Attribute::Soil => Color::hex("8a6515").unwrap(),
-            Attribute::Elevation => Color::YELLOW,
-            Attribute::Temperature => Color::RED,
-            Attribute::Fertility => Color::GREEN,
-            Attribute::Rocks => Color::hex("4d4d4d").unwrap(),
-            Attribute::Moisture => Color::BLUE,
-            Attribute::None => Color::WHITE,
-        };
+        if let Some(spectrum) = state.overlay.get(&state.terrain.overlay) {
+            let mut tiles = vec![];
+            let mut points = vec![];
+    
+            for y in 0..height {
+                for x in 0..width {
+                    let y = y - height / 2;
+                    let x = x - width / 2;
+    
+                    let point = (x,y);
 
-        let mut tiles = vec![];
-        let mut points = vec![];
+                    // get the attribute value
+                    let feature = match state.terrain.overlay {
+                        Attribute::None => 0.0,
+                        _ => state.get_attribute(&point,&state.terrain.overlay),
+                    };
 
-        for y in 0..height {
-            for x in 0..width {
-                let y = y - height / 2;
-                let x = x - width / 2;
 
-                let point = (x,y);
-                let mut color = tint.clone();
+                    // get the color from the overlay spectrum
+                    let overlay = match state.terrain.overlay {
+                        Attribute::None => Color::WHITE,
+                        _ => spectrum.get(feature),
+                    };
 
-                let mut i = state.get_texture_unchecked(&point);
+                    // if the overlay is none, get the real texture,
+                    // otherwise get a blank one
+                    let texture = match state.terrain.overlay {
+                        Attribute::None => state.get_texture_unchecked(&point),
+                        _ => state.icons.blank,
+                    };
+    
+                    tiles.push(Tile {
+                        point: point,
+                        sprite_order: 0,
+                        sprite_index: texture,
+                        tint: overlay,
+                    });
 
-                if state.terrain.overlay != Attribute::None {
-                    let s = state.get_attribute(&point,state.terrain.overlay.clone());
-                    color.set_a(s);
-                    i = state.icons.blank;
+                    points.push((point,0));
                 }
-
-                tiles.push(Tile {
-                    point: point,
-                    sprite_order: 0,
-                    sprite_index: i,
-                    tint: color,
-                });
-                points.push((point,0));
             }
+    
+            tilemap.clear_tiles(points);
+            tilemap.insert_tiles(tiles);
+            
+            controls.update = false;
         }
-
-        tilemap.clear_tiles(points);
-        tilemap.insert_tiles(tiles);
-        
-        controls.update = false;
     }
 
 }
@@ -123,7 +197,8 @@ fn overlay_system(
 impl Plugin for ControlsPlugin {
 	fn build(&self, app: &mut AppBuilder) {
         app
-            .add_system(overlay_system.system());
+            .add_startup_system(overlay_setup_system.system())
+            .add_system(overlay_update_system.system());
 	}
 }
 

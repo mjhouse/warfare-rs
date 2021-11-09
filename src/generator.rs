@@ -101,6 +101,59 @@ fn generate_elevation(width: i32, height: i32, seed: u32, factor: f32) -> Vec<f3
     elevation
 }
 
+fn generate_temperature(width: i32, height: i32, seed: u32, factor: f32) -> Vec<f32> {
+    let w = width as f64;
+    let h = height as f64;
+
+    // offset values from [-1,1] to [1,2]
+    let offset = noise::Constant::new(1.0);
+
+    // set up ridges/mountains
+    let base1 = noise::RidgedMulti::new().set_seed(seed);
+
+    let ridges = noise::ScalePoint::new(
+        noise::Add::new(&base1,&offset))
+        .set_x_scale(0.015 / (w / 30.0))
+        .set_y_scale(0.015 / (h / 30.0));
+
+
+    // set up rolling hills
+    let base2 = noise::SuperSimplex::new().set_seed(seed);
+
+    let hills = noise::ScalePoint::new(
+        noise::Add::new(&base2,&offset))
+        .set_x_scale(0.015)
+        .set_y_scale(0.015);
+
+    // multiply noise together for final generator
+    let noise = noise::Multiply::new(&ridges,&hills);
+
+    let mut temperature = vec![];
+
+    let max = bounds::MAX_TEMP;
+    let min = bounds::MIN_TEMP;
+
+    for y in 0..height {
+        for x in 0..width {
+            let mut v = noise.get([
+                x as f64 * std::f64::consts::PI,
+                y as f64 * std::f64::consts::PI,
+            ]) as f32;
+
+            // normalize between 0 and 1
+            v = 1.0 - (v / 4.0);
+
+            // scale between min and max
+            v = (v * (max + min.abs())) - min.abs();
+
+            // scale by given factor and add
+            temperature.push(v * factor);
+        }
+    }
+
+    temperature
+}
+
 fn generate_moisture(width: i32, height: i32, initial: u8, elevation: &Vec<f32>) -> Vec<u8> {
     use std::convert::TryFrom;
     use std::cmp::Ordering;
@@ -221,6 +274,7 @@ fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efact
     
     let elevations = generate_elevation(width,height,seed,efactor);
     let moistures = generate_moisture(width,height,wfactor,&elevations);
+    let temperatures = generate_temperature(width,height,seed,efactor);
 
     let mut c = 0;
 
@@ -236,7 +290,7 @@ fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efact
             let rocks = 0;
             let fertility = 0;
             let elevation = elevations[c];
-            let temperature = 0.0;
+            let temperature = temperatures[c];
             let texture = icons[&soil];
 
             c += 1;

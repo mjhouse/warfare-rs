@@ -1,5 +1,6 @@
 use std::collections::hash_map::HashMap;
 use crate::area::{Location,Area,Attribute,bounds};
+use crate::spectrum::Spectrum;
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -20,6 +21,7 @@ pub struct Icons {
 #[derive(Default, Clone)]
 pub struct State {
     pub areas: HashMap<Location,Area>,
+    pub overlay: HashMap<Attribute,Spectrum>,
     pub terrain: Terrain,
     pub icons: Icons,
     pub loaded: bool,
@@ -47,7 +49,7 @@ impl State {
         self.areas.get(loc).unwrap().texture()
     }
 
-    pub fn get_attribute(&self, loc: &Location, attr: Attribute) -> f32 {
+    pub fn get_attribute(&self, loc: &Location, attr: &Attribute) -> f32 {
         match self.areas.get(loc) {
             Some(a) => match attr {
                 Attribute::Biome => self.biome_scaled(a),

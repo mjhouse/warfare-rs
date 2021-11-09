@@ -20,9 +20,9 @@ mod area;
 mod generator;
 mod controls;
 mod gui;
-
 mod selection;
 mod state;
+mod spectrum;
 
 use state::State;
 use area::{Area,Biome,Soil};
