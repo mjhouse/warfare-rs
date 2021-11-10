@@ -268,13 +268,88 @@ fn generate_moisture(width: i32, height: i32, initial: u8, elevation: &Vec<f32>)
     moisture
 }
 
+mod gen {
+
+    use crate::area::bounds;
+
+    #[derive(Default,Debug,Clone)]
+    pub struct Context {
+        pub seed: u32,
+        pub width: i32,
+        pub height: i32,
+        pub elevation: f32,
+        pub moisture: f32,
+        pub temperature: f32,
+    }
+
+    pub fn elevation(context: &Context, x: f32, y: f32, initial: f32) -> f32 {
+        0.0
+    }
+
+    pub fn temperature(context: &Context, x: f32, y: f32, initial: f32) -> f32 {
+        // use rand::Rng;
+        // let mut rng = rand::thread_rng();
+
+        let mut max_e = bounds::MAX_ELEV;
+        let mut min_e = bounds::MIN_ELEV;
+        let mut mid_e = max_e - min_e;
+
+        let mut max_t = bounds::MAX_TEMP;
+        let mut min_t = bounds::MIN_TEMP;
+        let mut mid_t = max_t - min_t;
+        
+        let mut e = context.elevation;
+        let mut w = context.moisture;
+        
+        let mut t = initial;
+        let mut v = 0.0;
+
+        // shift range to be positive
+        if min_e < 0.0 { 
+            let m = min_e.abs();
+            max_e += m;
+            min_e += m;
+            mid_e = max_e - min_e;
+            e += m;
+        }
+
+        // shift range to be positive
+        if min_t < 0.0 { 
+            let m = min_t.abs();
+            max_t += m;
+            min_t += m;
+            mid_t = max_t - min_t;
+        }
+
+        // normalize elevation (0.0,1.0)
+        v = (e - min_e) / (max_e - min_e);
+
+        // invert elevation
+        v = 1.0 - v;
+
+        // scale temperature by elevation
+        t = t + (t * (v - 0.5)) * 2.0;
+
+        // scale temperature by water
+        t = t + ((-t * 0.25) * w);
+
+        // add random variation (NOT TESTED)
+        //t = t + (t * 0.25 * (rng.gen::<f32>() - 0.5) ); // rng = [-.5,.5] 
+
+        t
+    }
+
+    pub fn moisture(context: &Context, x: f32, y: f32, initial: f32) -> f32 {
+        0.0
+    }
+}
+
 fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efactor: f32, wfactor: u8) -> Vec<Area> {
     let mut results = vec![];
-    // let mut rng = rand::thread_rng();
     
     let elevations = generate_elevation(width,height,seed,efactor);
     let moistures = generate_moisture(width,height,wfactor,&elevations);
-    let temperatures = generate_temperature(width,height,seed,efactor);
+    // let temperatures = generate_temperature(width,height,seed,efactor);
 
     let mut c = 0;
 
@@ -283,6 +358,23 @@ fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efact
             let y = y - height / 2;
             let x = x - width / 2;
 
+            // ========================================================
+            // TEST
+            let mut context = gen::Context::default();
+            context.elevation = elevations[c];
+            context.width = width;
+            context.height = height;
+            context.seed = seed;
+            context.moisture = moistures[c] as f32 / 100.0;
+
+            let fx = x as f32;
+            let fy = y as f32;
+
+            let initial = 20.0; // room temp in c
+
+            context.temperature = gen::temperature(&context,fx,fy,initial);
+            // ========================================================
+
             let location = (x,y);
             let biome = Biome::Grassland;
             let soil = Soil::Loam;
@@ -290,7 +382,7 @@ fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efact
             let rocks = 0;
             let fertility = 0;
             let elevation = elevations[c];
-            let temperature = temperatures[c];
+            let temperature = context.temperature;
             let texture = icons[&soil];
 
             c += 1;
