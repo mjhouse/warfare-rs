@@ -17,6 +17,7 @@ use std::iter::FromIterator;
 mod math;
 mod camera;
 mod area;
+mod generate;
 mod generator;
 mod controls;
 mod gui;
@@ -62,8 +63,8 @@ fn main() {
         .add_startup_system(gui::setup.system())
 
         // set up generator plugin/system
-        .add_plugin(generator::GeneratorPlugin)
-        .add_startup_system(generator::setup.system())
+        .add_plugin(generate::GeneratorPlugin)
+        .add_startup_system(generate::setup.system())
 
         .add_startup_system(setup.system())
         .run()
