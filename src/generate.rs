@@ -358,6 +358,8 @@ fn generate(icons: HashMap<Soil,usize>, width: i32, height: i32, seed:u32, efact
             let y = y - height / 2;
             let x = x - width / 2;
 
+            println!("({},{}): {}",x,y,c);
+
             // ========================================================
             // TEST
             let mut context = gen::Context::default();
@@ -430,7 +432,7 @@ fn generator_initialize_system(
             let tilemap = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(50, 50, 1)
+                .chunk_dimensions(30, 30, 1)
                 .texture_dimensions(175, 200)
                 .add_layer(
                     TilemapLayer {

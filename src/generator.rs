@@ -32,8 +32,8 @@ struct Values {
 }
 
 struct Generator {
-    context: Context,
     resources: Resources,
+    context: Context,
     values: Values,
 }
 
@@ -41,14 +41,14 @@ impl Generator {
 
     pub fn new( seed: u32, width: i32, height: i32 ) -> Self {
         Self {
+            resources: Resources {
+                noise: Box::new(SuperSimplex::new().set_seed(seed)),
+                random: rand::thread_rng(),
+            },
             context: Context {
                 seed: seed,
                 width: width,
                 height: height,
-            },
-            resources: Resources {
-                noise: Box::new(SuperSimplex::new().set_seed(seed)),
-                random: rand::thread_rng(),
             },
             values: Values {
                 elevation: HashMap::new(),
@@ -59,9 +59,20 @@ impl Generator {
     }
 
     fn index( &self, mut x: i32, mut y: i32 ) -> i32 {
-        x = x + self.context.width / 2;
-        y = y + self.context.height / 2;
-        (y * self.context.width) + x
+        let w = self.context.width;
+        let h = self.context.height;
+        
+        x = x + w / 2;
+        y = y + h / 2;
+
+        if x >= w || x < 0 {
+            return -1;
+        }
+        if y >= h || y < 0 {
+            return -1;
+        }
+
+        x + y * self.context.width
     }
 
     fn index_group( &self, x: i32, y: i32 ) -> Vec<i32> {
@@ -165,9 +176,19 @@ mod tests {
     use super::*;
 
     #[test]
+    // Test to determine whether Generator::index is 
+    // finding the correct index given (x,y) points
     fn generator_indices_calculated_correctly() {
-        // write test to determine whether Generator::index is 
-        // finding the correct index given (x,y) points
+        let gen = Generator::new(0,30,30);
+        assert_eq!(gen.index(-15,-15),0);
+        assert_eq!(gen.index(0,-8),225);
+        assert_eq!(gen.index(-11,-4),334);
+        assert_eq!(gen.index(14,0),479);
+        assert_eq!(gen.index(-15,4),570);
+        assert_eq!(gen.index( 14, 14),899);
+        assert_eq!(gen.index( 15, 14),-1);
+        assert_eq!(gen.index(-16,-15),-1);
+        assert_eq!(gen.index( 15, 14),-1);
     }
 
     #[test]
