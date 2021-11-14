@@ -1,14 +1,13 @@
 use std::collections::hash_map::HashMap;
 use crate::area::{Location,Area,Attribute,bounds};
 use crate::spectrum::Spectrum;
+use crate::generator::Factors;
 
 #[derive(Default, Clone)]
 pub struct Terrain {
     pub selected: Area,
     pub overlay: Attribute,
     pub seed: String,
-    pub water: u8,
-    pub mountains: f32,
     pub update: bool,
 }
 
@@ -23,6 +22,7 @@ pub struct State {
     pub areas: HashMap<Location,Area>,
     pub overlay: HashMap<Attribute,Spectrum>,
     pub terrain: Terrain,
+    pub factors: Factors,
     pub icons: Icons,
     pub loaded: bool,
 }

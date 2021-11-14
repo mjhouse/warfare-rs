@@ -37,16 +37,6 @@ impl Spectrum {
         self
     }
 
-    pub fn with_start_value<T: Into<f32>>(mut self, value: T) -> Self {
-        self.start.1 = value.into();
-        self
-    }
-
-    pub fn with_end_value<T: Into<f32>>(mut self, value: T) -> Self {
-        self.end.1 = value.into();
-        self
-    }
-
     pub fn finish(mut self) -> Self {
         self
     }
@@ -64,8 +54,8 @@ impl Spectrum {
         (self.start.1 - self.end.1) < 0.1
     }
 
-    fn interpolate(&self, start: f32, end: f32, value: f32) -> f32 {
-        return start * (1.0 - value) + end * value;
+    fn interpolate(&self, start: f32, end: f32, v: f32) -> f32 {
+        start * (1.0 - v) + end * v
     }
 
     fn convert_color(&self, h: f32, s: f32, l: f32) -> (f32,f32,f32) {

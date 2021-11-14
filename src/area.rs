@@ -11,8 +11,11 @@ static ID: AtomicUsize = AtomicUsize::new(0);
 pub type Location = (i32,i32);
 
 pub mod bounds {
-    pub const MAX_ELEV: f32 = 8848.0; // Mt Everest
-    pub const MIN_ELEV: f32 = -414.0; // Dead Sea
+    pub const MAX_ELEV: f32 = 4000.0;
+    pub const MIN_ELEV: f32 = 0.0;
+
+    // pub const MAX_ELEV: f32 = 8848.0; // Mt Everest
+    // pub const MIN_ELEV: f32 = -414.0; // Dead Sea
     
     pub const MAX_TEMP: f32 = 56.6;
     pub const MIN_TEMP: f32 = -89.2;
@@ -30,7 +33,7 @@ pub enum Attribute {
     Moisture,
 }
 
-#[derive(Debug,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Biome {
     None,     // no biome value
     Grassland,// high movement, low cover, med forage
@@ -40,7 +43,7 @@ pub enum Biome {
     Aquatic,  // freshwater or marine, very low move
 }
 
-#[derive(Debug,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Soil {
     None,  // no soil value
     Clay,  // holds water, bad fertility
@@ -314,6 +317,7 @@ mod tests {
 
     #[test]
     fn test_id_generated() {
+        // TODO: sometimes FAILS
         // make sure ID is reset to '0'
         ID.store(0, Ordering::SeqCst);
 

@@ -6,10 +6,10 @@ use crate::state::State;
 use crate::area::{Attribute,bounds};
 use crate::spectrum::Spectrum;
 
-pub struct ControlsPlugin;
+pub struct OverlayPlugin;
 
 #[derive(Default)]
-pub struct Controls {
+pub struct Overlay {
     pub update: bool,
 }
 
@@ -20,50 +20,36 @@ fn overlay_setup_system(
         let biome = Spectrum::new()
             .with_start_color(0.6944445,1.0,0.5,1.0)
             .with_end_color(0.527777778,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let soil = Spectrum::new()
             .with_start_color(0.6944445,1.0,0.5,1.0)
             .with_end_color(0.527777778,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let elevation = Spectrum::new()
             .with_start_color(0.6944445,1.0,0.5,1.0)
             .with_end_color(0.527777778,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let temperature = Spectrum::new()
             .with_start_color(250.0/360.0,0.8,0.5,1.0)
             .with_end_color(360.0/360.0,0.8,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let fertility = Spectrum::new()
             .with_start_color(0.6944445,1.0,0.5,1.0)
             .with_end_color(0.527777778,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let rocks = Spectrum::new()
-            .with_start_color(0.6944445,1.0,0.5,1.0)
-            .with_end_color(0.527777778,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
+            .with_start_color(0.527777778,0.5,0.5,1.0)
+            .with_end_color(0.6944445,0.5,0.5,1.0)
             .finish();
 
         let moisture = Spectrum::new()
             .with_start_color(0.472222222,1.0,0.5,1.0)
             .with_end_color(0.666666667,1.0,0.5,1.0)
-            .with_start_value(0.0)
-            .with_end_value(1.0)
             .finish();
 
         let none = Spectrum::empty();
@@ -82,7 +68,7 @@ fn overlay_setup_system(
 fn overlay_update_system(
     mut state: ResMut<State>,
     mut keys: EventReader<KeyboardInput>,
-	mut ctl_query: Query<&mut Controls>,
+	mut ctl_query: Query<&mut Overlay>,
     mut map_query: Query<&mut Tilemap>,
 ) {
     if !state.loaded {
@@ -93,7 +79,7 @@ fn overlay_update_system(
         return;
     }
 
-    let mut controls = ctl_query.single_mut().expect("Need controls");
+    let mut overlay = ctl_query.single_mut().expect("Need overlay");
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
     let mut key_pressed = false;
@@ -139,7 +125,7 @@ fn overlay_update_system(
         }
     }
 
-    if key_pressed || controls.update {
+    if key_pressed || overlay.update {
         let width = (tilemap.width().unwrap() * tilemap.chunk_width()) as i32;
         let height = (tilemap.height().unwrap() * tilemap.chunk_height()) as i32;
 
@@ -188,13 +174,13 @@ fn overlay_update_system(
             tilemap.clear_tiles(points);
             tilemap.insert_tiles(tiles);
             
-            controls.update = false;
+            overlay.update = false;
         }
     }
 
 }
 
-impl Plugin for ControlsPlugin {
+impl Plugin for OverlayPlugin {
 	fn build(&self, app: &mut AppBuilder) {
         app
             .add_startup_system(overlay_setup_system.system())
@@ -205,5 +191,5 @@ impl Plugin for ControlsPlugin {
 pub fn setup(mut commands: Commands) {
 	commands
 		.spawn()
-		.insert(Controls::default());
+		.insert(Overlay::default());
 }

@@ -1,4 +1,6 @@
 #![allow(clippy::all)]
+// #![allow(warnings)]
+
 use bevy::{
     asset::LoadState,
     sprite::{TextureAtlas, TextureAtlasBuilder},
@@ -19,7 +21,7 @@ mod camera;
 mod area;
 mod generate;
 mod generator;
-mod controls;
+mod overlay;
 mod gui;
 mod selection;
 mod state;
@@ -54,9 +56,9 @@ fn main() {
         .add_plugin(selection::SelectionPlugin)
         .add_startup_system(selection::setup.system())
 
-        // set up controls plugin/system
-        .add_plugin(controls::ControlsPlugin)
-        .add_startup_system(controls::setup.system())
+        // set up overlay plugin/system
+        .add_plugin(overlay::OverlayPlugin)
+        .add_startup_system(overlay::setup.system())
         
         // set up gui plugin/system
         .add_plugin(gui::GuiPlugin)

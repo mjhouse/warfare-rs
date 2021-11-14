@@ -72,15 +72,11 @@ fn gui_display_system(
                 ui.text_edit_singleline(&mut state.terrain.seed);
             });
 
-            ui.add(egui::Slider::new(
-                &mut state.terrain.water, 
-                0..=100,
-            ).text("Water"));
-            
-            ui.add(egui::Slider::new(
-                &mut state.terrain.mountains, 
-                0.0..=1.0,
-            ).text("Mountains"));
+            ui.add(egui::Slider::new(&mut state.factors.elevation, 0..=100).text("Elevation"));
+            ui.add(egui::Slider::new(&mut state.factors.temperature, 0..=100).text("Temperature"));
+            ui.add(egui::Slider::new(&mut state.factors.moisture, 0..=100).text("Moisture"));
+            ui.add(egui::Slider::new(&mut state.factors.rockiness, 0..=100).text("Rockiness"));
+            ui.add(egui::Slider::new(&mut state.factors.fertility, 0..=100).text("Fertility"));  
 
             if ui.button("Update").clicked() {
                 state.terrain.update = true;
