@@ -37,8 +37,8 @@ impl Default for Selection {
 }
 
 fn to_tile_coords(w: f32, h: f32, ox: f32, oy: f32) -> (i32,i32) {
-    let mut m = 0;
-    let mut n = 0;
+    let mut m;
+    let mut n;
 
     let mut x = ox;
     let mut y = oy;
@@ -72,9 +72,9 @@ fn to_tile_coords(w: f32, h: f32, ox: f32, oy: f32) -> (i32,i32) {
     m = (x / w).mid() as i32;
 
     let c = h*0.25;
-    let g = c/(w*0.5);
+    let _g = c/(w*0.5);
 
-    let mut ry = oy - (n as f32 * k);
+    let ry = oy - (n as f32 * k);
     let mut rx = ox + (w/4.0) - (m as f32 * w);
 
     if odd {
@@ -101,10 +101,6 @@ fn to_tile_coords(w: f32, h: f32, ox: f32, oy: f32) -> (i32,i32) {
     }
 
     (m,n)
-}
-
-fn from_tile_coords(x: i32, y: i32) -> (f32,f32) {
-    (0.0,0.0)
 }
 
 /// Find the current position of the mouse cursor
@@ -154,8 +150,8 @@ fn selected_hovered_system(
     }
 
     let window = windows.get_primary().unwrap();
+    let tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
-    let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
     if window.cursor_position().is_some() {
         let tile_width = tilemap.tile_width() as i32;
@@ -180,7 +176,6 @@ fn selected_highlight_system(
     inputs: Res<Input<MouseButton>>,
 	mut sel_query: Query<&mut Selection>,    
     mut map_query: Query<&mut Tilemap>,
-    mut dbg_query: Query<&mut Text, With<crate::DiagText>>,
 ) {
     if !state.loaded {
         return;
@@ -193,16 +188,24 @@ fn selected_highlight_system(
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
-            tilemap.clear_tile(selection.selected,1);
+            if let Err(e) = tilemap.clear_tile(selection.selected,1) {
+                println!("{:?}",e);
+            }
+
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-                tilemap.insert_tile(Tile {
+                let result = tilemap.insert_tile(Tile {
                     point: selection.selected,
                     sprite_order: 1,
                     sprite_index: state.icons.mark,
                     tint: Color::WHITE,
                 });
+
+                if let Err(e) = result {
+                    println!("{:?}",e);
+                }
+
             }
         }
     }

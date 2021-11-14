@@ -6,16 +6,12 @@ use bevy::prelude::*;
 use bevy::{
     asset::LoadState,
     sprite::{TextureAtlas, TextureAtlasBuilder},
-    window::WindowMode,
 };
 
 
 use bevy_tilemap::prelude::*;
 
-use noise::{Perlin,NoiseFn,Clamp,Seedable};
-use rand::Rng;
-
-use crate::area::{Area,Soil,Biome,bounds};
+use crate::area::{Area,Soil};
 use crate::overlay::Overlay;
 use crate::state::State;
 
@@ -65,18 +61,18 @@ fn generate(gen: &mut crate::generator::Generator, icons: HashMap<Soil,usize>, w
 
 fn generator_initialize_system(
     mut commands: Commands,
-    mut resources: ResMut<crate::WarfareResources>,
+    mut state: ResMut<State>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Texture>>,
     asset_server: Res<AssetServer>,
 ) {
-    if !resources.loaded_textures {
+    if !state.resources.loaded_textures {
         let mut texture_atlas_builder = TextureAtlasBuilder::default();
 
         if let LoadState::Loaded =
-            asset_server.get_group_load_state(resources.textures.iter().map(|h| h.id))
+            asset_server.get_group_load_state(state.resources.textures.iter().map(|h| h.id))
         {
-            for handle in resources.textures.iter() {
+            for handle in state.resources.textures.iter() {
                 let texture = textures.get(handle).unwrap();
                 texture_atlas_builder.add_texture(handle.clone_weak().typed::<Texture>(), &texture);
             }
@@ -87,7 +83,7 @@ fn generator_initialize_system(
             let tilemap = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(30, 30, 1)
+                .chunk_dimensions(100, 100, 1)
                 .texture_dimensions(175, 200)
                 .add_layer(
                     TilemapLayer {
@@ -122,7 +118,7 @@ fn generator_initialize_system(
                 .insert_bundle(tilemap_components)
                 .insert(Timer::from_seconds(0.075, true));
     
-            resources.loaded_textures = true;
+            state.resources.loaded_textures = true;
         }
     }
 }
@@ -138,6 +134,7 @@ fn generator_configure_system(
         if let Ok(mut map) = map_query.single_mut() {
 
             let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
+            //let size = state.terrain.seed.parse::<u32>().unwrap_or(30);
 
             if !map.contains_chunk((0, 0)) {
                 map.insert_chunk((0, 0)).unwrap();
@@ -177,7 +174,7 @@ fn generator_configure_system(
 
             let areas = generate(&mut generator,icons,width,height);
 
-            let mut tiles = areas
+            let tiles = areas
                 .iter()
                 .map(|a| a.tile())
                 .collect::<Vec<Tile<_>>>();

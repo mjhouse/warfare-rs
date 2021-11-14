@@ -1,17 +1,19 @@
-use noise::{Perlin,NoiseFn,SuperSimplex,Seedable};
+use noise::{NoiseFn,SuperSimplex,Seedable};
 use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use std::collections::HashMap;
 use crate::area::{bounds,Biome,Soil};
 
+#[allow(dead_code)]
 struct Context {
     seed: u32,
     width: i32,
     height: i32,
 }
 
+#[allow(dead_code)]
 struct Resources {
-    noise: Box<NoiseFn<[f64; 2]>>,
+    noise: Box<dyn NoiseFn<[f64; 2]>>,
     random: Pcg64,
 }
 
@@ -27,13 +29,13 @@ struct Values {
 
 #[derive(Default, Clone)]
 pub struct Factors {
-    pub elevation: u8,
-    pub temperature: u8,
+    pub elevation: u8,   // TODO: change to f32
+    pub temperature: u8, // TODO: change to f32
     pub moisture: u8,
     pub rockiness: u8,
     pub fertility: u8,
-    pub biome: u8,
-    pub soil: u8,
+    pub biome: Biome,
+    pub soil: Soil,
 }
 
 pub struct Generator {
@@ -79,6 +81,7 @@ impl Generator {
         x + y * w
     }
 
+    #[allow(dead_code)]
     fn index_group( &self, x: i32, y: i32 ) -> Vec<i32> {
         let w = self.context.width;
         let h = self.context.height;
@@ -95,13 +98,13 @@ impl Generator {
         }
 
         // get indices from (x,y) coordinates
-        let mut p0 = self.index(x  ,y  ); // center
+        let p0 = self.index(x  ,y  ); // center
         let mut p1 = self.index(x-1,y+1); // top-left
         let mut p2 = self.index(x  ,y+1); // top-right
         let mut p3 = self.index(x-1,y-1); // bot-left
         let mut p4 = self.index(x  ,y-1); // bot-right
-        let mut p5 = self.index(x-1,y  ); // mid-left
-        let mut p6 = self.index(x+1,y  ); // mid-right
+        let p5 = self.index(x-1,y  ); // mid-left
+        let p6 = self.index(x+1,y  ); // mid-right
 
         // expected rows
         let r0 = p0 / w + 1;
@@ -297,21 +300,19 @@ impl Generator {
 
     fn make_temperature( &mut self, x: i32, y: i32 ) -> f32 {
         let emax = bounds::MAX_ELEV;
-        let emin = bounds::MIN_ELEV;
-
         let tmax = bounds::MAX_TEMP;
         let tmin = bounds::MIN_TEMP;
 
         let factor = self.factors.temperature as f32;
 
-        let mut e;
-        let mut v;
+        let e;
+        let v;
 
         // get elevation and normalize
         e = 1.0 - (self.elevation(x,y) / emax);
 
         // scale between min and max temp
-        v = (e * tmax) + (e * tmin);
+        v = e * (tmax + tmin.abs()) - tmin.abs();
 
         v + (factor * e)
     }
@@ -321,8 +322,8 @@ impl Generator {
 
         let factor = self.factors.moisture as f32;
 
-        let mut e;
-        let mut v;
+        let e;
+        let v;
 
         // get elevation and normalize
         e = 1.0 - (self.elevation(x,y) / emax);
@@ -338,7 +339,7 @@ impl Generator {
 
         let factor = self.factors.rockiness as f32;
 
-        let mut e;
+        let e;
         let mut m;
         let mut v;
 
@@ -366,8 +367,8 @@ impl Generator {
         let mut e;
         let mut m;
         let mut r;
-        let mut f;
-        let mut v;
+        let f;
+        let v;
 
         // get related and normalize
         e = self.elevation(x,y) / emax;
@@ -380,24 +381,29 @@ impl Generator {
         // scale moisture
         m = m / 100.0;
 
-        // inverse and scale rockiness
+        // scale and inverse rockiness
         r = 1.0 - (r / 100.0);
 
-        // inverse and scale elevation
-        e = 1.0 - (e / emax) * 100.0;
+        // scale and inverse elevation
+        e = 1.0 - ((e / emax) * 100.0);
 
         // combine
-        v = ((m + r + e) / 3.0 + f) * 100.0;
+        v = ((m + r + e) / 3.0) * f;
 
-        v as u8
+        (v * 100.0).round() as u8
     }
 
-    fn make_biome( &self, x: i32, y: i32 ) -> Biome {
-        Biome::Grassland
+    fn make_biome( &self, _x: i32, _y: i32 ) -> Biome {
+        let factor = self.factors.biome;
+
+        
+
+        factor.into()
     }
 
-    fn make_soil( &self, x: i32, y: i32 ) -> Soil {
-        Soil::Loam
+    fn make_soil( &self, _x: i32, _y: i32 ) -> Soil {
+        let factor = self.factors.soil;
+        factor.into()
     }
 
 }

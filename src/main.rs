@@ -1,20 +1,11 @@
 #![allow(clippy::all)]
 // #![allow(warnings)]
 
-use bevy::{
-    asset::LoadState,
-    sprite::{TextureAtlas, TextureAtlasBuilder},
-    window::WindowMode,
-};
-
-use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
+use bevy::window::WindowMode;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin};
 
 use bevy::prelude::*;
 use bevy_tilemap::prelude::*;
-
-use std::array::IntoIter;
-use std::collections::HashMap;
-use std::iter::FromIterator;
 
 mod math;
 mod camera;
@@ -28,7 +19,6 @@ mod state;
 mod spectrum;
 
 use state::State;
-use area::{Area,Biome,Soil};
 
 fn main() {
     App::build()
@@ -42,7 +32,6 @@ fn main() {
             mode: WindowMode::Windowed,
             ..Default::default()
         })
-        .init_resource::<WarfareResources>()
         .init_resource::<State>()
         .add_plugins(DefaultPlugins)
         .add_plugins(TilemapDefaultPlugins)
@@ -72,24 +61,11 @@ fn main() {
         .run()
 }
 
-#[derive(Default, Clone)]
-struct WarfareResources {
-    textures: Vec<HandleUntyped>,
-    fonts: Vec<HandleUntyped>,
-
-    loaded_textures: bool,
-    loaded_fonts: bool,
-}
-
-pub struct DiagText;
-pub struct OverText;
-
 fn setup(
     mut _commands: Commands,
     mut state: ResMut<State>,
-    mut resources: ResMut<WarfareResources>, 
     asset_server: Res<AssetServer>,
 ) {
-    resources.textures = asset_server.load_folder("textures").unwrap();
+    state.resources.textures = asset_server.load_folder("textures").unwrap();
     state.terrain.update = true; // force terrain generation
 }

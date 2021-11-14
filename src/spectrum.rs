@@ -37,7 +37,7 @@ impl Spectrum {
         self
     }
 
-    pub fn finish(mut self) -> Self {
+    pub fn finish(self) -> Self {
         self
     }
 
@@ -50,6 +50,7 @@ impl Spectrum {
         Color::rgba(r,g,b,a)
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         (self.start.1 - self.end.1) < 0.1
     }
@@ -59,9 +60,9 @@ impl Spectrum {
     }
 
     fn convert_color(&self, h: f32, s: f32, l: f32) -> (f32,f32,f32) {
-        let mut r = 0.0;
-        let mut g = 0.0;
-        let mut b = 0.0;
+        let r;
+        let g;
+        let b;
 
         if s == 0.0 {
             r = l;
@@ -79,7 +80,7 @@ impl Spectrum {
         ( r, g, b )
     }
 
-    fn convert_value(&self, mut p: f32, mut q: f32, mut t: f32) -> f32 {
+    fn convert_value(&self, p: f32, q: f32, mut t: f32) -> f32 {
         if t < 0.0 { t += 1.0 };
         if t > 1.0 { t -= 1.0 };
         if t < 1.0/6.0 { return p + (q - p) * 6.0 * t };

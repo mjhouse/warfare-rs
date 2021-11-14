@@ -12,13 +12,9 @@ pub type Location = (i32,i32);
 
 pub mod bounds {
     pub const MAX_ELEV: f32 = 4000.0;
-    pub const MIN_ELEV: f32 = 0.0;
-
-    // pub const MAX_ELEV: f32 = 8848.0; // Mt Everest
-    // pub const MIN_ELEV: f32 = -414.0; // Dead Sea
-    
-    pub const MAX_TEMP: f32 = 56.6;
-    pub const MIN_TEMP: f32 = -89.2;
+    pub const MIN_ELEV: f32 = 0000.0;
+    pub const MAX_TEMP: f32 =  50.0;
+    pub const MIN_TEMP: f32 = -40.0;
 }
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]

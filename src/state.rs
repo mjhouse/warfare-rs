@@ -1,4 +1,6 @@
 use std::collections::hash_map::HashMap;
+use bevy::asset::HandleUntyped;
+
 use crate::area::{Location,Area,Attribute,bounds};
 use crate::spectrum::Spectrum;
 use crate::generator::Factors;
@@ -8,6 +10,7 @@ pub struct Terrain {
     pub selected: Area,
     pub overlay: Attribute,
     pub seed: String,
+    pub size: String,
     pub update: bool,
 }
 
@@ -18,7 +21,16 @@ pub struct Icons {
 }
 
 #[derive(Default, Clone)]
+pub struct Resources {
+    pub textures: Vec<HandleUntyped>,
+    pub fonts: Vec<HandleUntyped>,
+    pub loaded_textures: bool,
+    pub loaded_fonts: bool,
+}
+
+#[derive(Default, Clone)]
 pub struct State {
+    pub resources: Resources,
     pub areas: HashMap<Location,Area>,
     pub overlay: HashMap<Attribute,Spectrum>,
     pub terrain: Terrain,
@@ -34,7 +46,7 @@ impl State {
 
     pub fn add_all(&mut self, areas: Vec<Area>) {
         for area in areas.into_iter() {
-            self.areas.insert(area.location(),area);
+            self.add(area);
         }
     }
 
@@ -43,10 +55,6 @@ impl State {
             Some(a) => a.texture(),
             None => self.icons.blank,
         }
-    }
-
-    pub fn get_texture_unchecked(&self, loc: &Location) -> usize {
-        self.areas.get(loc).unwrap().texture()
     }
 
     pub fn get_attribute(&self, loc: &Location, attr: &Attribute) -> f32 {

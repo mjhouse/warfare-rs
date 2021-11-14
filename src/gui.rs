@@ -1,7 +1,6 @@
 use bevy::prelude::*;
-use bevy::input::keyboard::KeyboardInput;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
-
+use crate::area::{Biome,Soil};
 use crate::state::State;
 
 pub struct GuiPlugin;
@@ -23,7 +22,7 @@ fn gui_resources_system(
 
 // called once at startup to init
 fn gui_initialize_system(
-    context: ResMut<EguiContext>
+    _context: ResMut<EguiContext>
 ) {
     // // https://docs.rs/egui/0.14.2/egui/style/struct.Visuals.html
     // use equi::Color32;
@@ -58,18 +57,23 @@ fn gui_configure_system(
 // called repeatedly to update ui
 fn gui_display_system(
     mut state: ResMut<State>,
-    mut context: ResMut<EguiContext>,
+    context: ResMut<EguiContext>,
     _assets: Res<AssetServer>,
 ) {
     egui::SidePanel::left("side_panel")
         .default_width(200.0)
         .show(context.ctx(), |ui| {
             ui.separator();
-            ui.heading("Terrain");
+            ui.heading("Variables");
 
             ui.horizontal(|ui| {
                 ui.label("Seed: ");
                 ui.text_edit_singleline(&mut state.terrain.seed);
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Size: ");
+                ui.text_edit_singleline(&mut state.terrain.size);
             });
 
             ui.add(egui::Slider::new(&mut state.factors.elevation, 0..=100).text("Elevation"));
@@ -77,6 +81,30 @@ fn gui_display_system(
             ui.add(egui::Slider::new(&mut state.factors.moisture, 0..=100).text("Moisture"));
             ui.add(egui::Slider::new(&mut state.factors.rockiness, 0..=100).text("Rockiness"));
             ui.add(egui::Slider::new(&mut state.factors.fertility, 0..=100).text("Fertility"));  
+
+            ui.group(|ui|{
+                ui.set_width(ui.available_width());
+                ui.heading("Biome");
+                ui.radio_value(&mut state.factors.biome, Biome::None, "None");
+                ui.radio_value(&mut state.factors.biome, Biome::Grassland, "Grassland");
+                ui.radio_value(&mut state.factors.biome, Biome::Forest, "Forest");
+                ui.radio_value(&mut state.factors.biome, Biome::Desert, "Desert");
+                ui.radio_value(&mut state.factors.biome, Biome::Tundra, "Tundra");
+                ui.radio_value(&mut state.factors.biome, Biome::Aquatic, "Aquatic");
+            });
+
+            
+            ui.group(|ui|{
+                ui.set_width(ui.available_width());
+                ui.heading("Soil");
+                ui.radio_value(&mut state.factors.soil, Soil::None, "None");
+                ui.radio_value(&mut state.factors.soil, Soil::Clay, "Clay");
+                ui.radio_value(&mut state.factors.soil, Soil::Sand, "Sand");
+                ui.radio_value(&mut state.factors.soil, Soil::Silt, "Silt");
+                ui.radio_value(&mut state.factors.soil, Soil::Peat, "Peat");
+                ui.radio_value(&mut state.factors.soil, Soil::Chalk, "Chalk");
+                ui.radio_value(&mut state.factors.soil, Soil::Loam, "Loam");
+            });
 
             if ui.button("Update").clicked() {
                 state.terrain.update = true;

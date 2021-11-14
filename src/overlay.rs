@@ -3,7 +3,7 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::state::State;
-use crate::area::{Attribute,bounds};
+use crate::area::Attribute;
 use crate::spectrum::Spectrum;
 
 pub struct OverlayPlugin;
@@ -38,8 +38,8 @@ fn overlay_setup_system(
             .finish();
 
         let fertility = Spectrum::new()
-            .with_start_color(0.6944445,1.0,0.5,1.0)
-            .with_end_color(0.527777778,1.0,0.5,1.0)
+            .with_start_color(20.0/360.0,1.0,0.5,1.0)
+            .with_end_color(120.0/360.0,1.0,0.5,1.0)
             .finish();
 
         let rocks = Spectrum::new()
@@ -156,7 +156,7 @@ fn overlay_update_system(
                     // if the overlay is none, get the real texture,
                     // otherwise get a blank one
                     let texture = match state.terrain.overlay {
-                        Attribute::None => state.get_texture_unchecked(&point),
+                        Attribute::None => state.get_texture(&point),
                         _ => state.icons.blank,
                     };
     
@@ -171,8 +171,13 @@ fn overlay_update_system(
                 }
             }
     
-            tilemap.clear_tiles(points);
-            tilemap.insert_tiles(tiles);
+            if let Err(e) = tilemap.clear_tiles(points) {
+                println!("{:?}",e);
+            }
+
+            if let Err(e) = tilemap.insert_tiles(tiles) {
+                println!("{:?}",e);
+            }
             
             overlay.update = false;
         }
