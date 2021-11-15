@@ -50,6 +50,48 @@ pub enum Soil {
     Loam,  // high fert, med moisture
 }
 
+#[derive(Debug,Clone)]
+pub enum Foliage {
+    None,
+    Trees,
+    Grass,
+    Fields,
+    Rocks,
+    Brush,
+}
+
+#[derive(Debug,Clone)]
+pub enum Structure {
+    None,
+    Trenches,
+    Base, // FOB, FSB, Arsenal, etc.
+    Village,
+    Town,
+    City,
+}
+
+#[derive(Debug,Clone)]
+pub enum Weather {
+    Clear,
+    Cloudy,
+    Rain,
+    Storm,
+    Snow,
+    Hail,
+    Fog,
+}
+
+#[derive(Debug,Clone)]
+pub enum Period {
+    Day,
+    Night,
+}
+
+/// stack of enums for everything that a tile contains
+pub struct Terrain((Biome,Soil,Foliage,Structure,Weather,Period));
+
+
+
 impl Default for Attribute {
     fn default() -> Self { Self::None }
 }
