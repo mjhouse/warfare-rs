@@ -189,7 +189,7 @@ fn selected_highlight_system(
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
             if let Err(e) = tilemap.clear_tile(selection.selected,1) {
-                println!("selection: clear_tiles: {:?}",e);
+                log::warn!("{:?}",e);
             }
 
             selection.selected = selection.hovered;
@@ -203,7 +203,7 @@ fn selected_highlight_system(
                 });
 
                 if let Err(e) = result {
-                    println!("selection: insert_tile: {:?}",e);
+                    log::warn!("{:?}",e);
                 }
 
             }
