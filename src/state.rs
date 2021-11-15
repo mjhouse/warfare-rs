@@ -1,9 +1,12 @@
 use std::collections::hash_map::HashMap;
 use bevy::asset::HandleUntyped;
+use bevy::sprite::TextureAtlas;
+use bevy::asset::AssetServer;
 
-use crate::area::{Location,Area,Attribute,bounds};
+use crate::area::{Location,Area,Attribute,Soil,bounds};
 use crate::spectrum::Spectrum;
 use crate::generator::Factors;
+use crate::error::{Error,Result};
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -15,7 +18,13 @@ pub struct Terrain {
 }
 
 #[derive(Default, Clone)]
-pub struct Icons {
+pub struct Icons { // CHANGE TO SOILICONS or something
+    pub clay: usize,
+    pub sand: usize,
+    pub silt: usize,
+    pub peat: usize,
+    pub chalk: usize,
+    pub loam: usize,
     pub blank: usize,
     pub mark: usize,
 }
@@ -111,4 +120,45 @@ impl State {
         let s = area.moisture() as f32;
         s / 100.0
     }
+}
+
+impl Icons {
+
+    pub fn from(server: &AssetServer, atlas: &TextureAtlas) -> Result<Self> {
+        Ok(Self {
+            clay: Self::index(server,atlas,"clay")?,
+            sand: Self::index(server,atlas,"sand")?,
+            silt: Self::index(server,atlas,"silt")?,
+            peat: Self::index(server,atlas,"peat")?,
+            chalk: Self::index(server,atlas,"chalk")?,
+            loam: Self::index(server,atlas,"loam")?,
+            blank: Self::index(server,atlas,"blank")?,
+            mark: Self::index(server,atlas,"marker")?,
+        })
+    }
+
+    pub fn get(&self, soil: &Soil) -> usize {
+        match soil {
+            Soil::Clay => self.clay,
+            Soil::Sand => self.sand,
+            Soil::Silt => self.silt,
+            Soil::Peat => self.peat,
+            Soil::Chalk => self.chalk,
+            Soil::Loam => self.loam,
+            _ => self.blank,
+        }
+    }
+
+    // pub fn mark(&self) -> usize {
+    //     self.mark
+    // }
+
+    fn index(server: &AssetServer, atlas: &TextureAtlas, name: &str) -> Result<usize> {
+        let n = format!("textures/{}.png",name);
+        match atlas.get_texture_index(&server.get_handle(n.as_str())) {
+            Some(i) => Ok(i),
+            _ => Err(Error::TextureNotFound),
+        }
+    }
+
 }

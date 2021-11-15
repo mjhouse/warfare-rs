@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::iter::FromIterator;
-use std::array::IntoIter;
-
 use bevy::prelude::*;
 use bevy::{
     asset::LoadState,
@@ -11,9 +7,9 @@ use bevy::{
 
 use bevy_tilemap::prelude::*;
 
-use crate::area::{Area,Soil};
+use crate::area::{Area};
 use crate::overlay::Overlay;
-use crate::state::State;
+use crate::state::{State,Icons};
 
 pub struct GeneratorPlugin;
 
@@ -22,7 +18,7 @@ pub struct Generator {
     // add map features
 }
 
-fn generate(gen: &mut crate::generator::Generator, icons: HashMap<Soil,usize>, width: i32, height: i32) -> Vec<Area> {
+fn generate(gen: &mut crate::generator::Generator, icons: &Icons, width: i32, height: i32) -> Vec<Area> {
     let mut results = vec![];
 
     for y in 0..height {
@@ -38,7 +34,7 @@ fn generate(gen: &mut crate::generator::Generator, icons: HashMap<Soil,usize>, w
             let fertility = gen.fertility(x,y);
             let elevation = gen.elevation(x,y);
             let temperature = gen.temperature(x,y);
-            let texture = icons[&soil];
+            let texture = icons.get(&soil);
 
             let area = Area::create()
                 .with_texture(texture)
@@ -133,60 +129,49 @@ fn generator_configure_system(
     if state.terrain.update {
         if let Ok(mut map) = map_query.single_mut() {
 
-            let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
-            //let size = state.terrain.seed.parse::<u32>().unwrap_or(30);
+            // get texture atlas that contains loaded tile textures
+            let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
 
+            // insert the chunk if it's not already available
             if !map.contains_chunk((0, 0)) {
                 map.insert_chunk((0, 0)).unwrap();
             }
 
+            // calculate width and height of tile map
             let width = (map.width().unwrap() * map.chunk_width()) as i32;
             let height = (map.height().unwrap() * map.chunk_height()) as i32;
 
-            // Then we need to find out what the handles were to our textures we are going to use.
-            let clay: Handle<Texture> = asset_server.get_handle("textures/clay.png");
-            let sand: Handle<Texture> = asset_server.get_handle("textures/sand.png");
-            let silt: Handle<Texture> = asset_server.get_handle("textures/silt.png");
-            let peat: Handle<Texture> = asset_server.get_handle("textures/peat.png");
-            let chalk: Handle<Texture> = asset_server.get_handle("textures/chalk.png");
-            let loam: Handle<Texture> = asset_server.get_handle("textures/loam.png");
-            let blank: Handle<Texture> = asset_server.get_handle("textures/blank.png");
-            let marker: Handle<Texture> = asset_server.get_handle("textures/marker.png");
-
-            let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
-
-            let icons = HashMap::<_, _>::from_iter(IntoIter::new([
-                (Soil::Clay, texture_atlas.get_texture_index(&clay).unwrap()),
-                (Soil::Sand, texture_atlas.get_texture_index(&sand).unwrap()),
-                (Soil::Silt, texture_atlas.get_texture_index(&silt).unwrap()),
-                (Soil::Peat, texture_atlas.get_texture_index(&peat).unwrap()),
-                (Soil::Chalk, texture_atlas.get_texture_index(&chalk).unwrap()),
-                (Soil::Loam, texture_atlas.get_texture_index(&loam).unwrap()), 
-            ]));
-
+            // get icons (tile textures), the user-provided seed for the map,
+            // and the user-provided factors for each tile attribute.
+            let icons = Icons::from(&asset_server,&texture_atlas).unwrap();
+            let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
             let factors = state.factors.clone();
 
+            // create a map generator
             let mut generator = crate::generator::Generator::new(
                 seed,
                 width,
                 height,
                 factors);
 
-            let areas = generate(&mut generator,icons,width,height);
+            // generate map
+            let areas = generate(&mut generator,&icons,width,height);
 
+            // convert areas to bevy_tilemap tiles
             let tiles = areas
                 .iter()
                 .map(|a| a.tile())
                 .collect::<Vec<Tile<_>>>();
 
-            state.icons.blank = texture_atlas.get_texture_index(&blank).unwrap();
-            state.icons.mark = texture_atlas.get_texture_index(&marker).unwrap();
-
+            // update state
+            state.icons = icons;
             state.add_all(areas);
-            map.insert_tiles(tiles).unwrap();
 
+            // update tilemap
+            map.insert_tiles(tiles).unwrap();
             map.spawn_chunk((0, 0)).unwrap();
 
+            // set load flags
             state.terrain.update = false;
             state.loaded = true;
 

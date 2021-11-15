@@ -172,11 +172,11 @@ fn overlay_update_system(
             }
     
             if let Err(e) = tilemap.clear_tiles(points) {
-                println!("{:?}",e);
+                println!("overlay: clear_tiles: {:?}",e);
             }
 
             if let Err(e) = tilemap.insert_tiles(tiles) {
-                println!("{:?}",e);
+                println!("overlay: insert_tiles: {:?}",e);
             }
             
             overlay.update = false;

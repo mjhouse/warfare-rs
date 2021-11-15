@@ -395,9 +395,6 @@ impl Generator {
 
     fn make_biome( &self, _x: i32, _y: i32 ) -> Biome {
         let factor = self.factors.biome;
-
-        
-
         factor.into()
     }
 

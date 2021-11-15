@@ -17,6 +17,7 @@ mod gui;
 mod selection;
 mod state;
 mod spectrum;
+mod error;
 
 use state::State;
 
