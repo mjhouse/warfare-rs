@@ -18,12 +18,13 @@ mod selection;
 mod state;
 mod spectrum;
 mod error;
+mod terrain;
 
 use state::State;
 
 fn main() {
     pretty_env_logger::init();
-    
+
     App::build()
         .insert_resource(Msaa { samples: 8 })
         .insert_resource(WindowDescriptor {

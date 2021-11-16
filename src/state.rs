@@ -3,7 +3,8 @@ use bevy::asset::HandleUntyped;
 use bevy::sprite::TextureAtlas;
 use bevy::asset::AssetServer;
 
-use crate::area::{Location,Area,Attribute,Soil,bounds};
+use crate::area::{Location,Area,Attribute,bounds};
+use crate::terrain::{Soil};
 use crate::spectrum::Spectrum;
 use crate::generator::Factors;
 use crate::error::{Error,Result};

@@ -1,8 +1,9 @@
-use noise::{NoiseFn,SuperSimplex,Seedable};
+use noise::{NoiseFn,Worley,Value,SuperSimplex,Seedable};
 use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use std::collections::HashMap;
-use crate::area::{bounds,Biome,Soil};
+use crate::terrain::{Biome,Soil,Foliage};
+use crate::area::bounds;
 
 #[allow(dead_code)]
 struct Context {
@@ -13,7 +14,9 @@ struct Context {
 
 #[allow(dead_code)]
 struct Resources {
-    noise: Box<dyn NoiseFn<[f64; 2]>>,
+    simplex: SuperSimplex,
+    worley: Worley,
+    value: Value,
     random: Pcg64,
 }
 
@@ -25,6 +28,7 @@ struct Values {
     fertility: HashMap<i32,u8>,
     biome: HashMap<i32,Biome>,
     soil: HashMap<i32,Soil>,
+    foliage: HashMap<i32,Foliage>,
 }
 
 #[derive(Default, Clone)]
@@ -50,7 +54,9 @@ impl Generator {
     pub fn new( seed: u32, width: i32, height: i32, factors: Factors ) -> Self {
         Self {
             resources: Resources {
-                noise: Box::new(SuperSimplex::new().set_seed(seed)),
+                simplex: SuperSimplex::new().set_seed(seed),
+                worley: Worley::new().set_seed(seed),
+                value: Value::new().set_seed(seed),
                 random: Pcg64::seed_from_u64(seed as u64),
             },
             context: Context {
@@ -67,6 +73,7 @@ impl Generator {
                 fertility: HashMap::new(),
                 biome: HashMap::new(),
                 soil: HashMap::new(),
+                foliage: HashMap::new(),
             },
         }
     }
@@ -148,11 +155,23 @@ impl Generator {
         gp
     }
 
-    fn get_noise( &self, x: f32, y: f32) -> f32 {
-        self.resources.noise.get([
+    fn get_noise( &self, f: &dyn NoiseFn<[f64; 2]>, x: f32, y: f32) -> f32 {
+        f.get([
             x as f64 * std::f64::consts::PI,
             y as f64 * std::f64::consts::PI,
         ]) as f32
+    }
+
+    fn get_simplex( &self, x: f32, y: f32) -> f32 {
+        self.get_noise(&self.resources.simplex,x,y)
+    }
+
+    fn get_worley( &self, x: f32, y: f32) -> f32 {
+        self.get_noise(&self.resources.worley,x,y)
+    }
+
+    fn get_value( &self, x: f32, y: f32) -> f32 {
+        self.get_noise(&self.resources.value,x,y)
     }
 
     fn get_elevation( &self, x: i32, y: i32 ) -> Option<&f32> {
@@ -181,6 +200,10 @@ impl Generator {
 
     fn get_soil( &self, x: i32, y: i32 ) -> Option<&Soil> {
         self.values.soil.get(&self.index(x,y))
+    }
+
+    fn get_foliage( &self, x: i32, y: i32 ) -> Option<&Foliage> {
+        self.values.foliage.get(&self.index(x,y))
     }
 
     pub fn elevation( &mut self, x: i32, y: i32 ) -> f32 {
@@ -267,6 +290,18 @@ impl Generator {
         }
     }
 
+    pub fn foliage( &mut self, x: i32, y: i32 ) -> Foliage {
+        match self.get_foliage(x,y) {
+            Some(v) => *v,
+            None => {
+                let i = self.index(x,y);
+                let v = self.make_foliage(x,y);
+                self.values.foliage.insert(i,v);
+                v
+            }
+        }
+    }
+
     fn make_elevation( &self, x: i32, y: i32 ) -> f32 {
         let max = bounds::MAX_ELEV;
         let min = bounds::MIN_ELEV;
@@ -276,9 +311,9 @@ impl Generator {
         let i = x as f32 * 0.015;
         let j = y as f32 * 0.015;
 
-        let n1 = (self.get_noise(i * 1.0, j * 1.0) + 1.0) / 2.0;
-        let n2 = (self.get_noise(i * 2.0, j * 2.0) + 1.0) / 2.0;
-        let n3 = (self.get_noise(i * 4.0, j * 4.0) + 1.0) / 2.0;
+        let n1 = (self.get_simplex(i * 1.0, j * 1.0) + 1.0) / 2.0;
+        let n2 = (self.get_simplex(i * 2.0, j * 2.0) + 1.0) / 2.0;
+        let n3 = (self.get_simplex(i * 4.0, j * 4.0) + 1.0) / 2.0;
 
         let v1 = 1.00 * n1;
         let v2 = 0.50 * n2;
@@ -398,9 +433,62 @@ impl Generator {
         factor.into()
     }
 
-    fn make_soil( &self, _x: i32, _y: i32 ) -> Soil {
-        let factor = self.factors.soil;
-        factor.into()
+    fn make_soil( &self, x: i32, y: i32 ) -> Soil {
+        if self.factors.soil != Soil::None {
+            return self.factors.soil
+        }
+
+        let i = x as f32 * 0.25;
+        let j = y as f32 * 0.25;
+
+        let worley = self.get_worley(i,j);
+        //let value = self.get_value(i,j);
+
+        // Clay,  // holds water, bad fertility
+        // Sand,  // low nutrients, low moisture, drain quickly
+        // Silt,  // erodes in rain, med moisture, med fertility
+        // Peat,  // high moisture, med-high fert
+        // Chalk, // low fertility, alkaline soil
+        // Loam,  // high fert, med moisture
+
+        // Lowest-to-highest Fertility:
+        //      Sand
+        //      Chalk      
+        //      Clay
+        //      Silt
+        //      Peat
+        //      Loam
+
+        // Lowest-to-highest Moisture:
+        //      Sand
+        //      Chalk      
+        //      Silt
+        //      Loam
+        //      Clay
+        //      Peat
+
+        // 1. use some combination of worley/value noise to get initial state
+        // 2. Use combination of moisture/fertility to find final soil type:
+        //      High F, High M => Peat
+        //      High F, Med  M => Loam
+        //      High F, Low  M => Silt
+        //      Med  F, High M => Peat
+        //      Med  F, Med  M => Silt
+        //      Med  F, Low  M => Chalk
+        //      Low  F, High M => Clay
+        //      Low  F, Med  M => Sand
+        //      Low  F, Low  M => Sand
+
+        if worley > 0.0 {
+            Soil::Clay
+        }
+        else {
+            Soil::Loam
+        }
+    }
+
+    fn make_foliage( &self, _x: i32, _y: i32 ) -> Foliage {
+        Foliage::Grass
     }
 
 }
