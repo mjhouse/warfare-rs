@@ -7,6 +7,9 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_tilemap::prelude::*;
 
+const MAP_HEIGHT: u32 = 30;
+const MAP_WIDTH: u32 = 30;
+
 mod math;
 mod camera;
 mod area;

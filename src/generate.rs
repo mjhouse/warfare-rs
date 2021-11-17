@@ -79,7 +79,7 @@ fn generator_initialize_system(
             let tilemap = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(100, 100, 1)
+                .chunk_dimensions(crate::MAP_WIDTH, crate::MAP_HEIGHT, 1)
                 .texture_dimensions(175, 200)
                 .add_layer(
                     TilemapLayer {

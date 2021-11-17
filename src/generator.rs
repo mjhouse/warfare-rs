@@ -433,58 +433,61 @@ impl Generator {
         factor.into()
     }
 
-    fn make_soil( &self, x: i32, y: i32 ) -> Soil {
+    fn make_soil( &mut self, x: i32, y: i32 ) -> Soil {
+        use Soil::*;
+
         if self.factors.soil != Soil::None {
             return self.factors.soil
         }
 
+        // convert x,y to f32 for math, scale for noise
         let i = x as f32 * 0.25;
         let j = y as f32 * 0.25;
 
-        let worley = self.get_worley(i,j);
-        //let value = self.get_value(i,j);
+        let mspec = [
+            Sand,
+            Chalk,
+            Silt,
+            Loam,
+            Clay,
+            Peat,
+        ];
 
-        // Clay,  // holds water, bad fertility
-        // Sand,  // low nutrients, low moisture, drain quickly
-        // Silt,  // erodes in rain, med moisture, med fertility
-        // Peat,  // high moisture, med-high fert
-        // Chalk, // low fertility, alkaline soil
-        // Loam,  // high fert, med moisture
+        let fspec = [
+            Sand,
+            Chalk,
+            Clay,
+            Silt,
+            Peat,
+            Loam,
+        ];
 
-        // Lowest-to-highest Fertility:
-        //      Sand
-        //      Chalk      
-        //      Clay
-        //      Silt
-        //      Peat
-        //      Loam
+        // get initial noise, moisture and fertility
+        let s = self.get_worley(i,j);
+        let m = self.moisture(x,y) as f32 / 100.0;
+        let f = self.fertility(x,y) as f32 / 100.0;
 
-        // Lowest-to-highest Moisture:
-        //      Sand
-        //      Chalk      
-        //      Silt
-        //      Loam
-        //      Clay
-        //      Peat
+        // shift to 0-5 ranges and convert to indices
+        let si = (((s + 1.0) / 2.0) * 5.0).floor() as usize;
+        let mi = (m * 5.0).floor().min(5.).max(0.) as usize;
+        let fi = (f * 5.0).floor().min(5.).max(0.) as usize;
 
-        // 1. use some combination of worley/value noise to get initial state
-        // 2. Use combination of moisture/fertility to find final soil type:
-        //      High F, High M => Peat
-        //      High F, Med  M => Loam
-        //      High F, Low  M => Silt
-        //      Med  F, High M => Peat
-        //      Med  F, Med  M => Silt
-        //      Med  F, Low  M => Chalk
-        //      Low  F, High M => Clay
-        //      Low  F, Med  M => Sand
-        //      Low  F, Low  M => Sand
+        /*
+            0. Start with m soil as your default initial soil type
+            1. Randomly select between worley noise and moisture soil with < 0.2 chance of worley
+            2. Get difference between f soil and m soil and shift m soil to more/less fertile soil if difference is great
 
-        if worley > 0.0 {
-            Soil::Clay
-        }
-        else {
-            Soil::Loam
-        }
+        */
+
+        // Soil from fertility
+        fspec[fi]
+
+        // Soil from moisture
+        //mspec[mi]
+
+        // Soil from noise
+        //Soil::from(si as u8)
+
     }
 
     fn make_foliage( &self, _x: i32, _y: i32 ) -> Foliage {
