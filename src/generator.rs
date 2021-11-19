@@ -2,6 +2,7 @@ use noise::{NoiseFn,Worley,Value,SuperSimplex,Seedable};
 use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use std::collections::HashMap;
+
 use crate::terrain::{Biome,Soil,Foliage};
 use crate::area::bounds;
 
@@ -154,7 +155,7 @@ impl Generator {
         gp.sort();
         gp
     }
-
+        
     fn get_noise( &self, f: &dyn NoiseFn<[f64; 2]>, x: f32, y: f32) -> f32 {
         f.get([
             x as f64 * std::f64::consts::PI,
@@ -320,15 +321,18 @@ impl Generator {
         let v3 = 0.25 * n3;
 
         let mut v;
+        let mut f;
+
+        f = factor / 100.0;
 
         // average multiple levels of noise
         v = (v1 + v2 + v3) / (1.0 + 0.5 + 0.25);
 
-        // modify elevation by factor
-        v = v.powf(factor as f32 / 100.0);
+        // raise elev to factor and invert
+        v = 1.0 - v.powf(f);
 
         // scale between min and max elevation
-        v = (v * (max + min.abs())) - min.abs();
+        v = (v * (max - min)) + min;
 
         v
     }
@@ -359,6 +363,12 @@ impl Generator {
 
         let e;
         let v;
+
+        /*
+            CALCULATE TEMPERATURE AS DEVIATION FROM 20C
+            
+
+        */
 
         // get elevation and normalize
         e = 1.0 - (self.elevation(x,y) / emax);
@@ -395,37 +405,40 @@ impl Generator {
     }
 
     fn make_fertility( &mut self, x: i32, y: i32 ) -> u8 {
-        let emax = bounds::MAX_ELEV;
+        let tmax = bounds::MAX_TEMP;
+        let tmin = bounds::MIN_TEMP;
 
         let factor = self.factors.fertility as f32;
 
-        let mut e;
+        let mut t;
         let mut m;
         let mut r;
-        let f;
-        let v;
+        let mut f;
 
         // get related and normalize
-        e = self.elevation(x,y) / emax;
+        t = self.temperature(x,y);
         r = self.rockiness(x,y) as f32;
         m = self.moisture(x,y) as f32;
+
+        // ideal growing temperature is 20deg celsius
+        let k = (20.0 + tmin.abs()) / (tmax + tmin.abs());
+
+        // scale temperature
+        t = (t + tmin.abs()) / (tmax + tmin.abs());
+
+        // t is not distance from k
+        t = (k - t).abs();
+
+        // scale rockiness
+        r = r / 100.0;
 
         // scale factor
         f = factor / 100.0;
 
-        // scale moisture
-        m = m / 100.0;
+        // scale and exaggerate moisture
+        m = (m / 100.0).powf(2.0);
 
-        // scale and inverse rockiness
-        r = 1.0 - (r / 100.0);
-
-        // scale and inverse elevation
-        e = 1.0 - ((e / emax) * 100.0);
-
-        // combine
-        v = ((m + r + e) / 3.0) * f;
-
-        (v * 100.0).round() as u8
+        (((f + m) - (r + t)) / 2.0 * 100.0).round() as u8
     }
 
     fn make_biome( &self, _x: i32, _y: i32 ) -> Biome {
@@ -440,54 +453,24 @@ impl Generator {
             return self.factors.soil
         }
 
-        // convert x,y to f32 for math, scale for noise
-        let i = x as f32 * 0.25;
-        let j = y as f32 * 0.25;
-
-        let mspec = [
-            Sand,
-            Chalk,
-            Silt,
-            Loam,
-            Clay,
-            Peat,
+        // moisture on x axis, fertility on -y axis
+        let spectrum = [
+            Sand,   Sand, Chalk, Silt, Clay, Clay,
+            Sand,  Chalk, Chalk, Silt, Clay, Clay,
+            Chalk, Chalk,  Silt, Clay, Clay, Clay,
+            Chalk,  Silt,  Silt, Loam, Peat, Peat,
+            Silt,   Silt,  Loam, Loam, Peat, Peat,
+            Silt,   Loam,  Loam, Loam, Peat, Peat,
         ];
 
-        let fspec = [
-            Sand,
-            Chalk,
-            Clay,
-            Silt,
-            Peat,
-            Loam,
-        ];
 
-        // get initial noise, moisture and fertility
-        let s = self.get_worley(i,j);
-        let m = self.moisture(x,y) as f32 / 100.0;
-        let f = self.fertility(x,y) as f32 / 100.0;
+        // biased because fertility is skewed low (70 rather than 100)
+        let m = (self.moisture(x,y) as f32 / 100.).min(1.);
+        let f = (self.fertility(x,y) as f32 / 100.).min(1.);
 
-        // shift to 0-5 ranges and convert to indices
-        let si = (((s + 1.0) / 2.0) * 5.0).floor() as usize;
-        let mi = (m * 5.0).floor().min(5.).max(0.) as usize;
-        let fi = (f * 5.0).floor().min(5.).max(0.) as usize;
+        let n = ((m * 5.) + (f * 30.)).min(35.).max(0.) as usize;
 
-        /*
-            0. Start with m soil as your default initial soil type
-            1. Randomly select between worley noise and moisture soil with < 0.2 chance of worley
-            2. Get difference between f soil and m soil and shift m soil to more/less fertile soil if difference is great
-
-        */
-
-        // Soil from fertility
-        fspec[fi]
-
-        // Soil from moisture
-        //mspec[mi]
-
-        // Soil from noise
-        //Soil::from(si as u8)
-
+        spectrum[n]
     }
 
     fn make_foliage( &self, _x: i32, _y: i32 ) -> Foliage {
