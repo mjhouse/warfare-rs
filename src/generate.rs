@@ -35,20 +35,7 @@ fn generate(gen: &mut Generator, icons: &Icons, width: i32, height: i32) -> Vec<
             let fertility = gen.fertility(x,y);
             let elevation = gen.elevation(x,y);
             let temperature = gen.temperature(x,y);
-            let mut textures = vec![ icons.get(&soil) ];
-
-            if fertility > 75 {
-                textures.push(icons.get_str("grass1"));
-            }
-            else if fertility > 50 {
-                textures.push(icons.get_str("grass2"));
-            }
-            else if fertility > 25 {
-                textures.push(icons.get_str("grass3"));
-            }
-            else {
-                textures.push(icons.get_str("grass4"));
-            }
+            let textures = gen.textures(icons,x,y);
 
             let area = Area::create()
                 .with_textures(textures)
@@ -104,7 +91,7 @@ fn generator_initialize_system(
                 )
                 .add_layer( // GRASS
                     TilemapLayer {
-                        kind: LayerKind::Sparse,
+                        kind: LayerKind::Dense,
                         ..Default::default()
                     },
                     1,
@@ -118,7 +105,7 @@ fn generator_initialize_system(
                 )
                 .add_layer( // OVERLAY
                     TilemapLayer {
-                        kind: LayerKind::Sparse,
+                        kind: LayerKind::Dense,
                         ..Default::default()
                     },
                     3,

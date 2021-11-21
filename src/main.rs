@@ -23,6 +23,9 @@ mod spectrum;
 mod error;
 mod terrain;
 
+mod resources;
+mod generation;
+
 use state::State;
 
 fn main() {

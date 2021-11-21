@@ -4,6 +4,7 @@ use rand::SeedableRng;
 use std::collections::HashMap;
 
 use crate::terrain::{Biome,Soil,Foliage};
+use crate::state::Icons;
 use crate::area::bounds;
 
 #[allow(dead_code)]
@@ -332,6 +333,37 @@ impl Generator {
         }
     }
 
+    pub fn textures( &mut self, icons: &Icons, x: i32, y: i32 ) -> Vec<usize> {
+        let mut t1;
+        let mut t2;
+        
+        t1 = icons.get(&self.soil(x,y));
+        t2 = icons.blank;
+
+        let m = self.moisture(x,y);
+        let f = self.fertility(x,y);
+
+        if m > 99 {
+            t2 = icons.get_str("water");
+        }
+        else {
+            if f > 75 {
+                t2 = icons.get_str("grass1");
+            }
+            else if f > 50 {
+                t2 = icons.get_str("grass2");
+            }
+            else if f > 25 {
+                t2 = icons.get_str("grass3");
+            }
+            else {
+                t2 = icons.get_str("grass4");
+            }
+        }
+
+        vec![ t1, t2 ]
+    }
+
     fn make_elevation( &self, x: i32, y: i32 ) -> f32 {
         let max = bounds::MAX_ELEV;
         let min = bounds::MIN_ELEV;
@@ -392,18 +424,20 @@ impl Generator {
     fn make_moisture( &mut self, x: i32, y: i32 ) -> u8 {
         let emax = bounds::MAX_ELEV;
 
-        let factor = self.factors.moisture as f32;
+        let mut f;
+        let mut e;
+        let mut v;
 
-        let e;
-        let v;
+        f = self.factors.moisture as f32 / 50.;
+        e = self.elevation(x,y);
 
-        // get elevation and normalize
-        e = 1.0 - (self.elevation(x,y) / emax);
+        // normalize and invert elevation
+        e = 1.0 - (e / emax);
 
-        // scale in moisture range, add factor
-        v = (e * 100.0) + (e * factor);
+        // scale double max X moisture, divide
+        v = (f * e * 200.0) / 2.0;
 
-        v as u8
+        (v as u8).min(100)
     }
 
     fn make_rockiness( &mut self, x: i32, y: i32 ) -> u8 {
@@ -513,7 +547,7 @@ mod tests {
 
     #[test]
     fn generator_indices_30x30() {
-        let gen = Generator::new(0,30,30);
+        let gen = Generator::new(0,30,30,Default::default(),0);
         assert_eq!(gen.index(-15,-15),0);
         assert_eq!(gen.index(0,-8),225);
         assert_eq!(gen.index(-11,-4),334);
@@ -524,7 +558,7 @@ mod tests {
 
     #[test]
     fn generator_indices_30x42() {
-        let gen = Generator::new(0,30,42);
+        let gen = Generator::new(0,30,42,Default::default(),0);
         assert_eq!(gen.index(-15,-21),0);
         assert_eq!(gen.index(14,-21),29);
         assert_eq!(gen.index(14,20),1259);
@@ -536,7 +570,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_corners() {
-        let gen = Generator::new(0,30,30);
+        let gen = Generator::new(0,30,30,Default::default(),0);
         let mut grp;
 
         // bottom-left corner
@@ -558,7 +592,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_quadrants() {
-        let gen = Generator::new(0,30,30);
+        let gen = Generator::new(0,30,30,Default::default(),0);
         let mut grp;
 
         // top-left quadrant
@@ -580,7 +614,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_edges() {
-        let gen = Generator::new(0,30,30);
+        let gen = Generator::new(0,30,30,Default::default(),0);
         let mut grp;
 
         // top-left quadrant top-edge
@@ -618,7 +652,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_negative() {
-        let gen = Generator::new(0,30,30);
+        let gen = Generator::new(0,30,30,Default::default(),0);
         let mut grp;
 
         // top-left quadrant top-edge

@@ -254,6 +254,7 @@ mod tests {
             .with_moisture(110)
             .with_rocks(110)
             .with_fertility(110)
+            .with_textures(vec![0])
             .build();
 
         assert_eq!(a1.moisture(), 100);
@@ -266,11 +267,13 @@ mod tests {
         let a1 = Area::create()
             .with_temperature(99999.999)
             .with_elevation(99999.999)
+            .with_textures(vec![0])
             .build();
 
         let a2 = Area::create()
             .with_temperature(-9999.999)
             .with_elevation(-9999.999)
+            .with_textures(vec![0])
             .build();
 
         assert!(a1.elevation() <= bounds::MAX_ELEV);
