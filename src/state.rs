@@ -6,7 +6,7 @@ use bevy::asset::AssetServer;
 use crate::area::{Location,Area,Attribute,bounds};
 use crate::terrain::{Soil};
 use crate::spectrum::Spectrum;
-use crate::generator::Factors;
+use crate::generator::{Factors,Generator};
 use crate::error::{Error,Result};
 
 #[derive(Default, Clone)]
@@ -19,7 +19,12 @@ pub struct Terrain {
 }
 
 #[derive(Default, Clone)]
-pub struct Icons { // CHANGE TO SOILICONS or something
+pub struct Icons {
+    pub grass1: usize,
+    pub grass2: usize,
+    pub grass3: usize,
+    pub grass4: usize,
+    pub water: usize,
     pub clay: usize,
     pub sand: usize,
     pub silt: usize,
@@ -41,12 +46,14 @@ pub struct Resources {
 #[derive(Default, Clone)]
 pub struct State {
     pub resources: Resources,
+    pub generator: Generator,
     pub areas: HashMap<Location,Area>,
     pub overlay: HashMap<Attribute,Spectrum>,
     pub terrain: Terrain,
     pub factors: Factors,
     pub icons: Icons,
     pub loaded: bool,
+    pub turn: u32,
 }
 
 impl State {
@@ -62,7 +69,7 @@ impl State {
 
     pub fn get_texture(&self, loc: &Location) -> usize {
         match self.areas.get(loc) {
-            Some(a) => a.texture(),
+            Some(a) => a.texture().unwrap_or(self.icons.blank),
             None => self.icons.blank,
         }
     }
@@ -127,6 +134,11 @@ impl Icons {
 
     pub fn from(server: &AssetServer, atlas: &TextureAtlas) -> Result<Self> {
         Ok(Self {
+            water: Self::index(server,atlas,"water")?,
+            grass1: Self::index(server,atlas,"grass_1")?,
+            grass2: Self::index(server,atlas,"grass_2")?,
+            grass3: Self::index(server,atlas,"grass_3")?,
+            grass4: Self::index(server,atlas,"grass_4")?,
             clay: Self::index(server,atlas,"clay")?,
             sand: Self::index(server,atlas,"sand")?,
             silt: Self::index(server,atlas,"silt")?,
@@ -150,9 +162,25 @@ impl Icons {
         }
     }
 
-    // pub fn mark(&self) -> usize {
-    //     self.mark
-    // }
+    pub fn get_str(&self, name: &str) -> usize {
+        match name {
+            "water" => self.water,
+            "grass1" => self.grass1,
+            "grass2" => self.grass2,
+            "grass3" => self.grass3,
+            "grass4" => self.grass4,
+            "clay" => self.clay,
+            "sand" => self.sand,
+            "silt" => self.silt,
+            "peat" => self.peat,
+            "chalk" => self.chalk,
+            "loam" => self.loam,
+            "blank" => self.blank,
+            "marker" => self.mark,
+            _ => self.blank,
+        }
+    }
+
 
     fn index(server: &AssetServer, atlas: &TextureAtlas, name: &str) -> Result<usize> {
         let n = format!("textures/{}.png",name);

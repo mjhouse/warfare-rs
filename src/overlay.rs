@@ -17,39 +17,41 @@ fn overlay_setup_system(
     mut state: ResMut<State>,
 ) {
     if state.overlay.is_empty() {
-        let biome = Spectrum::new()
-            .with_start_color(0.6944445,1.0,0.5,1.0)
-            .with_end_color(0.527777778,1.0,0.5,1.0)
+        // https://hslpicker.com/#f600ff
+
+        let biome = Spectrum::default()
+            .with_start_color(250.0/360.0,1.0,0.5,1.0)
+            .with_end_color(190.0/360.0,1.0,0.5,1.0)
             .finish();
 
-        let soil = Spectrum::new()
-            .with_start_color(0.6944445,1.0,0.5,1.0)
-            .with_end_color(0.527777778,1.0,0.5,1.0)
+        let soil = Spectrum::default()
+            .with_start_color(250.0/360.0,1.0,0.5,1.0)
+            .with_end_color(190.0/360.0,1.0,0.5,1.0)
             .finish();
 
-        let elevation = Spectrum::new()
-            .with_start_color(0.6944445,1.0,0.5,1.0)
-            .with_end_color(0.527777778,1.0,0.5,1.0)
+        let elevation = Spectrum::default()
+            .with_start_color(250.0/360.0,1.0,0.5,1.0)
+            .with_end_color(190.0/360.0,1.0,0.5,1.0)
             .finish();
 
-        let temperature = Spectrum::new()
-            .with_start_color(250.0/360.0,0.8,0.5,1.0)
+        let temperature = Spectrum::default()
+            .with_start_color(180.0/360.0,0.8,0.5,1.0)
             .with_end_color(360.0/360.0,0.8,0.5,1.0)
             .finish();
 
-        let fertility = Spectrum::new()
+        let fertility = Spectrum::default()
             .with_start_color(20.0/360.0,1.0,0.5,1.0)
             .with_end_color(120.0/360.0,1.0,0.5,1.0)
             .finish();
 
-        let rocks = Spectrum::new()
-            .with_start_color(0.527777778,0.5,0.5,1.0)
-            .with_end_color(0.6944445,0.5,0.5,1.0)
+        let rocks = Spectrum::default()
+            .with_start_color(190.0/360.0,0.5,0.5,1.0)
+            .with_end_color(350.0/360.0,0.5,0.5,1.0)
             .finish();
 
-        let moisture = Spectrum::new()
-            .with_start_color(0.472222222,1.0,0.5,1.0)
-            .with_end_color(0.666666667,1.0,0.5,1.0)
+        let moisture = Spectrum::default()
+            .with_start_color(170.0/360.0,1.0,0.5,1.0)
+            .with_end_color(240.0/360.0,1.0,0.5,1.0)
             .finish();
 
         let none = Spectrum::empty();
@@ -162,12 +164,12 @@ fn overlay_update_system(
     
                     tiles.push(Tile {
                         point: point,
-                        sprite_order: 0,
+                        sprite_order: 3,
                         sprite_index: texture,
                         tint: overlay,
                     });
 
-                    points.push((point,0));
+                    points.push((point,3));
                 }
             }
     
@@ -175,8 +177,10 @@ fn overlay_update_system(
                 log::warn!("{:?}",e);
             }
 
-            if let Err(e) = tilemap.insert_tiles(tiles) {
-                log::warn!("{:?}",e);
+            if state.terrain.overlay != Attribute::None {
+                if let Err(e) = tilemap.insert_tiles(tiles) {
+                    log::warn!("{:?}",e);
+                }
             }
             
             overlay.update = false;

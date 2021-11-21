@@ -188,7 +188,7 @@ fn selected_highlight_system(
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
-            if let Err(e) = tilemap.clear_tile(selection.selected,1) {
+            if let Err(e) = tilemap.clear_tile(selection.selected,2) {
                 log::warn!("{:?}",e);
             }
 
@@ -197,7 +197,7 @@ fn selected_highlight_system(
                 state.terrain.selected = area.clone();
                 let result = tilemap.insert_tile(Tile {
                     point: selection.selected,
-                    sprite_order: 1,
+                    sprite_order: 2,
                     sprite_index: state.icons.mark,
                     tint: Color::WHITE,
                 });

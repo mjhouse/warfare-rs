@@ -10,30 +10,26 @@ pub struct Shade {
 
 #[derive(Default,Debug,Clone)]
 pub struct Spectrum {
-    start: (Shade,f32),
-    end: (Shade,f32),
+    start: Shade,
+    end:   Shade,
 }
 
 impl Spectrum {
 
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn empty() -> Self {
         Self {
-            start: (Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 }, 0.0),
-            end: (Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 }, 0.0),
+            start: Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 },
+            end:   Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 },
         }
     }
 
     pub fn with_start_color(mut self, h: f32, s: f32, l: f32, a: f32) -> Self {
-        self.start.0 = Shade { h, s, l, a };
+        self.start = Shade { h, s, l, a };
         self
     }
 
     pub fn with_end_color(mut self, h: f32, s: f32, l: f32, a: f32) -> Self {
-        self.end.0 = Shade { h, s, l, a };
+        self.end = Shade { h, s, l, a };
         self
     }
 
@@ -42,17 +38,42 @@ impl Spectrum {
     }
 
     pub fn get(&self, value: f32) -> Color {
-        let h = self.interpolate(self.start.0.h,self.end.0.h,value);
-        let s = self.interpolate(self.start.0.s,self.end.0.s,value);
-        let l = self.interpolate(self.start.0.l,self.end.0.l,value);
-        let a = self.interpolate(self.start.0.a,self.end.0.a,value);
+        let h = self.interp_hue(&self.start,&self.end,value);
+        let s = self.interpolate(self.start.s,self.end.s,value);
+        let l = self.interpolate(self.start.l,self.end.l,value);
+        let a = self.interpolate(self.start.a,self.end.a,value);
         let (r,g,b) = self.convert_color(h,s,l);
         Color::rgba(r,g,b,a)
     }
 
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        (self.start.1 - self.end.1) < 0.1
+    fn interp_hue(&self, start: &Shade, end: &Shade, mut v: f32) -> f32 {
+        let mut a = start.clone();
+        let mut b = end.clone();
+
+        // Hue interpolation
+        let mut h = 0.0;
+        let mut d = b.h - a.h;
+
+
+        if a.h > b.h {
+            // swap b.h and a.h
+            let k = b.h;
+            b.h = a.h;
+            a.h = k;
+
+            d = -d;
+            v = 1. - v;
+        }
+
+        if d > 0.5 {
+            a.h = a.h + 1.;
+            h = ( a.h + v * (b.h - a.h) ) % 1.;
+        }
+        else {
+            h = a.h + v * d;
+        }
+
+        h
     }
 
     fn interpolate(&self, start: f32, end: f32, v: f32) -> f32 {
@@ -170,7 +191,7 @@ impl From<Color> for Shade {
                     a: alpha,
                 }
             },
-            _ => unreachable!("as_hsla returned non-HSLA color"),
+            _ => unreachable!(),
         }
     }
 }

@@ -10,15 +10,16 @@ use bevy_tilemap::prelude::*;
 use crate::area::{Area};
 use crate::overlay::Overlay;
 use crate::state::{State,Icons};
+use crate::generator::Generator;
 
 pub struct GeneratorPlugin;
 
 #[derive(Default,Debug,Clone)]
-pub struct Generator {
+pub struct GenMap {
     // add map features
 }
 
-fn generate(gen: &mut crate::generator::Generator, icons: &Icons, width: i32, height: i32) -> Vec<Area> {
+fn generate(gen: &mut Generator, icons: &Icons, width: i32, height: i32) -> Vec<Area> {
     let mut results = vec![];
 
     for y in 0..height {
@@ -34,10 +35,23 @@ fn generate(gen: &mut crate::generator::Generator, icons: &Icons, width: i32, he
             let fertility = gen.fertility(x,y);
             let elevation = gen.elevation(x,y);
             let temperature = gen.temperature(x,y);
-            let texture = icons.get(&soil);
+            let mut textures = vec![ icons.get(&soil) ];
+
+            if fertility > 75 {
+                textures.push(icons.get_str("grass1"));
+            }
+            else if fertility > 50 {
+                textures.push(icons.get_str("grass2"));
+            }
+            else if fertility > 25 {
+                textures.push(icons.get_str("grass3"));
+            }
+            else {
+                textures.push(icons.get_str("grass4"));
+            }
 
             let area = Area::create()
-                .with_texture(texture)
+                .with_textures(textures)
                 .with_location(location)
                 .with_biome(biome)
                 .with_soil(soil)
@@ -81,19 +95,33 @@ fn generator_initialize_system(
                 .dimensions(1, 1)
                 .chunk_dimensions(crate::MAP_WIDTH, crate::MAP_HEIGHT, 1)
                 .texture_dimensions(175, 200)
-                .add_layer(
+                .add_layer( // SOIL
                     TilemapLayer {
                         kind: LayerKind::Dense,
                         ..Default::default()
                     },
                     0,
                 )
-                .add_layer(
+                .add_layer( // GRASS
                     TilemapLayer {
                         kind: LayerKind::Sparse,
                         ..Default::default()
                     },
                     1,
+                )
+                .add_layer( // SELECTION
+                    TilemapLayer {
+                        kind: LayerKind::Sparse,
+                        ..Default::default()
+                    },
+                    2,
+                )
+                .add_layer( // OVERLAY
+                    TilemapLayer {
+                        kind: LayerKind::Sparse,
+                        ..Default::default()
+                    },
+                    3,
                 )
                 .texture_atlas(atlas_handle)
                 .finish()
@@ -148,19 +176,21 @@ fn generator_configure_system(
             let factors = state.factors.clone();
 
             // create a map generator
-            let mut generator = crate::generator::Generator::new(
+            state.generator = Generator::new(
                 seed,
                 width,
                 height,
-                factors);
+                factors,
+                state.turn);
 
             // generate map
-            let areas = generate(&mut generator,&icons,width,height);
+            let areas = generate(&mut state.generator,&icons,width,height);
 
             // convert areas to bevy_tilemap tiles
             let tiles = areas
                 .iter()
-                .map(|a| a.tile())
+                .map(|a| a.tiles())
+                .flatten()
                 .collect::<Vec<Tile<_>>>();
 
             // update state
@@ -194,5 +224,5 @@ impl Plugin for GeneratorPlugin {
 pub fn setup(mut commands: Commands) {
 	commands
 		.spawn()
-		.insert(Generator::default());
+		.insert(GenMap::default());
 }

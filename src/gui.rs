@@ -67,13 +67,12 @@ fn gui_display_system(
             ui.heading("Variables");
 
             ui.horizontal(|ui| {
+                if state.terrain.seed.is_empty() {
+                    state.terrain.seed = "0".into();
+                }
+
                 ui.label("Seed: ");
                 ui.text_edit_singleline(&mut state.terrain.seed);
-            });
-
-            ui.horizontal(|ui| {
-                ui.label("Size: ");
-                ui.text_edit_singleline(&mut state.terrain.size);
             });
 
             ui.add(egui::Slider::new(&mut state.factors.elevation, 0..=100).text("Elevation"));
@@ -106,9 +105,18 @@ fn gui_display_system(
                 ui.radio_value(&mut state.factors.soil, Soil::Loam, "Loam");
             });
 
-            if ui.button("Update").clicked() {
-                state.terrain.update = true;
-            }
+            ui.horizontal(|ui| {
+                if ui.button("Update").clicked() {
+                    state.terrain.update = true;
+                }
+    
+                if ui.button("End Turn").clicked() {
+                    state.turn += 1;
+                    state.terrain.update = true;
+                }
+
+                ui.label(format!("Turn: {}",state.turn));
+            });
 
             ui.separator();
             ui.heading("Selection");
@@ -116,7 +124,7 @@ fn gui_display_system(
 
             ui.monospace(format!("Id:          {}",area.id()));
             ui.monospace(format!("Location:    {:?}",area.location()));
-            ui.monospace(format!("Texture:     {}",area.texture()));
+            ui.monospace(format!("Texture:     {}",area.texture().unwrap_or(0)));
             ui.monospace(format!("Biome:       {}",area.biome()));
             ui.monospace(format!("Soil:        {}",area.soil()));
             ui.monospace(format!("Elevation:   {}",area.elevation()));

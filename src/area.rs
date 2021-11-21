@@ -43,8 +43,8 @@ pub struct Area {
     /// A unique id for each tile
     id: usize,
 
-    /// The base texture id (ground) for this area
-    texture: usize,
+    /// The texture stack for this area
+    textures: Vec<usize>,
 
     /// The texture layer
     order: usize,
@@ -110,8 +110,8 @@ impl Area {
         }
     }
 
-    pub fn with_texture<T: Into<usize>>(mut self, v: T) -> Self {
-        self.texture = v.into();
+    pub fn with_textures(mut self, v: Vec<usize>) -> Self {
+        self.textures = v;
         self
     }
     
@@ -171,6 +171,8 @@ impl Area {
             .min(MAX_TEMP)
             .max(MIN_TEMP);
 
+        assert!(self.textures.len() > 0);
+
         self
     }
 
@@ -178,8 +180,8 @@ impl Area {
         self.id.clone()
     }
 
-    pub fn texture(&self) -> usize {
-        self.texture.clone()
+    pub fn texture(&self) -> Option<usize> {
+        self.textures.get(0).cloned()
     }
 
     pub fn location(&self) -> Location {
@@ -214,13 +216,16 @@ impl Area {
         self.temperature.clone()
     }
 
-    pub fn tile(&self) -> Tile<Point3> {
-        Tile {
-            point: self.location.into(),
-            sprite_order: self.order,
-            sprite_index: self.texture,
-            tint: Color::WHITE,
-        }
+    pub fn tiles(&self) -> Vec<Tile<Point3>> {
+        self.textures
+            .iter()
+            .enumerate()
+            .map(|(i,t)| Tile {
+                point: self.location.into(),
+                sprite_order: i,
+                sprite_index: *t,
+                tint: Color::WHITE,
+            }).collect()
     }
 
 }

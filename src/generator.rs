@@ -7,6 +7,7 @@ use crate::terrain::{Biome,Soil,Foliage};
 use crate::area::bounds;
 
 #[allow(dead_code)]
+#[derive(Default,Clone)]
 struct Context {
     seed: u32,
     width: i32,
@@ -14,6 +15,7 @@ struct Context {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 struct Resources {
     simplex: SuperSimplex,
     worley: Worley,
@@ -21,6 +23,7 @@ struct Resources {
     random: Pcg64,
 }
 
+#[derive(Default,Clone)]
 struct Values {
     elevation: HashMap<i32,f32>,
     temperature: HashMap<i32,f32>,
@@ -32,10 +35,10 @@ struct Values {
     foliage: HashMap<i32,Foliage>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Factors {
-    pub elevation: u8,   // TODO: change to f32
-    pub temperature: u8, // TODO: change to f32
+    pub elevation: u8,
+    pub temperature: u8,
     pub moisture: u8,
     pub rockiness: u8,
     pub fertility: u8,
@@ -43,6 +46,7 @@ pub struct Factors {
     pub soil: Soil,
 }
 
+#[derive(Default,Clone)]
 pub struct Generator {
     resources: Resources,
     context: Context,
@@ -50,9 +54,34 @@ pub struct Generator {
     values: Values,
 }
 
+impl Default for Resources {
+    fn default() -> Self {
+        Self {
+            simplex: SuperSimplex::new().set_seed(0),
+            worley:  Worley::new().set_seed(0),
+            value:   Value::new().set_seed(0),
+            random:  Pcg64::seed_from_u64(0),
+        }
+    }
+}
+
+impl Default for Factors {
+    fn default() -> Self {
+        Self {
+            elevation: 50,
+            temperature: 50,
+            moisture: 50,
+            rockiness: 50,
+            fertility: 50,
+            biome: Biome::None,
+            soil: Soil::None,
+        }
+    }
+}
+
 impl Generator {
 
-    pub fn new( seed: u32, width: i32, height: i32, factors: Factors ) -> Self {
+    pub fn new( seed: u32, width: i32, height: i32, factors: Factors, turn: u32 ) -> Self {
         Self {
             resources: Resources {
                 simplex: SuperSimplex::new().set_seed(seed),
@@ -342,18 +371,22 @@ impl Generator {
         let tmax = bounds::MAX_TEMP;
         let tmin = bounds::MIN_TEMP;
 
-        let factor = self.factors.temperature as f32;
+        let mut f;
+        let mut e;
+        let mut v;
 
-        let e;
-        let v;
+        f = self.factors.temperature as f32;
+        e = self.elevation(x,y);
 
-        // get elevation and normalize
-        e = 1.0 - (self.elevation(x,y) / emax);
+        // scale 0-1
+        f = f / 100.;
+        e = e / emax;
 
-        // scale between min and max temp
-        v = e * (tmax + tmin.abs()) - tmin.abs();
+        // inverse elevation and add factor
+        v = (1.0 - e)/2.0 + f/2.0;
 
-        v + (factor * e)
+        // scale into temperature range
+        v * (tmax + tmin.abs()) - tmin.abs()
     }
 
     fn make_moisture( &mut self, x: i32, y: i32 ) -> u8 {
@@ -363,12 +396,6 @@ impl Generator {
 
         let e;
         let v;
-
-        /*
-            CALCULATE TEMPERATURE AS DEVIATION FROM 20C
-            
-
-        */
 
         // get elevation and normalize
         e = 1.0 - (self.elevation(x,y) / emax);
