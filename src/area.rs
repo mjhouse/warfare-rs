@@ -216,7 +216,8 @@ impl Area {
         self.temperature.clone()
     }
 
-    pub fn tiles(&self) -> Vec<Tile<Point3>> {
+    pub fn tiles(&self, max: usize) -> Vec<Tile<Point3>> {
+        assert!(self.textures.len().saturating_sub(1) <= max);
         self.textures
             .iter()
             .enumerate()

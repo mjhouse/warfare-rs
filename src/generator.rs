@@ -334,34 +334,38 @@ impl Generator {
     }
 
     pub fn textures( &mut self, icons: &Icons, x: i32, y: i32 ) -> Vec<usize> {
-        let mut t1;
-        let mut t2;
-        
-        t1 = icons.get(&self.soil(x,y));
-        t2 = icons.blank;
+        let mut result = vec![
+            icons.get(&self.soil(x,y)),
+        ];
+
 
         let m = self.moisture(x,y);
         let f = self.fertility(x,y);
+        let t = self.foliage(x,y);
 
         if m > 99 {
-            t2 = icons.get_str("water");
+            result.push(icons.get_str("water"));
         }
         else {
             if f > 75 {
-                t2 = icons.get_str("grass1");
+                result.push(icons.get_str("grass1"));
             }
             else if f > 50 {
-                t2 = icons.get_str("grass2");
+                result.push(icons.get_str("grass2"));
             }
             else if f > 25 {
-                t2 = icons.get_str("grass3");
+                result.push(icons.get_str("grass3"));
             }
             else {
-                t2 = icons.get_str("grass4");
+                result.push(icons.get_str("grass4"));
+            }
+
+            if t == Foliage::Trees {
+                result.push(icons.get_str("trees"));
             }
         }
 
-        vec![ t1, t2 ]
+        result
     }
 
     fn make_elevation( &self, x: i32, y: i32 ) -> f32 {
@@ -534,8 +538,21 @@ impl Generator {
         spectrum[n]
     }
 
-    fn make_foliage( &self, _x: i32, _y: i32 ) -> Foliage {
-        Foliage::Grass
+    fn make_foliage( &mut self, x: i32, y: i32 ) -> Foliage {
+        let emax = bounds::MAX_ELEV;
+
+        let i = x as f32 * 0.05;
+        let j = y as f32 * 0.05;
+
+        let v = self.get_simplex(i,j);
+        let e = self.elevation(x,y) / emax;
+
+        if v > 0. && e < 0.5 {
+            Foliage::Trees
+        }
+        else {
+            Foliage::Grass
+        }
     }
 
 }

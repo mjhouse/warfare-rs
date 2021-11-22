@@ -2,12 +2,21 @@ use std::collections::hash_map::HashMap;
 use bevy::asset::HandleUntyped;
 use bevy::sprite::TextureAtlas;
 use bevy::asset::AssetServer;
+use bevy_tilemap::point::Point3;
+use bevy_tilemap::chunk::LayerKind;
 
 use crate::area::{Location,Area,Attribute,bounds};
 use crate::terrain::{Soil};
 use crate::spectrum::Spectrum;
 use crate::generator::{Factors,Generator};
 use crate::error::{Error,Result};
+
+#[derive(Clone,Eq,PartialEq)]
+pub enum LayerUse {
+    Tilemap,
+    Selection,
+    Overlay,
+}
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -33,6 +42,7 @@ pub struct Icons {
     pub loam: usize,
     pub blank: usize,
     pub mark: usize,
+    pub trees: usize,
 }
 
 #[derive(Default, Clone)]
@@ -43,20 +53,89 @@ pub struct Resources {
     pub loaded_fonts: bool,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct State {
+    /// textures and other resources
     pub resources: Resources,
-    pub generator: Generator,
-    pub areas: HashMap<Location,Area>,
-    pub overlay: HashMap<Attribute,Spectrum>,
-    pub terrain: Terrain,
+
+    /// the map layers to build
+    pub layers: Vec<(LayerKind,LayerUse)>,
+
+    /// user-supplied factors that control generator
     pub factors: Factors,
+
+    /// the map generator to use
+    pub generator: Generator,
+
+    /// current selection of areas
+    pub areas: HashMap<Location,Area>,
+
+    /// current points and layers of graphics
+    pub tiles: Vec<(Point3,usize)>,
+
+    /// available overlay displays
+    pub overlay: HashMap<Attribute,Spectrum>,
+
+    /// terrain flags and information
+    pub terrain: Terrain,
+
+    /// tile icon resources
     pub icons: Icons,
+
+    /// resource loaded flag
     pub loaded: bool,
+
+    /// the turn number
     pub turn: u32,
 }
 
+impl Default for State {
+
+    fn default() -> Self {
+        Self {
+            resources: Default::default(),
+            layers: vec![
+                (LayerKind::Dense,  LayerUse::Tilemap),
+                (LayerKind::Dense,  LayerUse::Tilemap),
+                (LayerKind::Dense,  LayerUse::Tilemap),
+                (LayerKind::Dense,  LayerUse::Overlay),
+                (LayerKind::Sparse, LayerUse::Selection),
+            ],
+            factors: Default::default(),
+            generator: Default::default(),
+            areas: Default::default(),
+            tiles: Default::default(),
+            overlay: Default::default(),
+            terrain: Default::default(),
+            icons: Default::default(),
+            loaded: Default::default(),
+            turn: Default::default(),
+        }
+    }
+
+}
+
 impl State {
+
+    pub fn get_layer(&self, layer: LayerUse) -> usize {
+        self.layers
+            .iter()
+            .position(|(k,u)| u == &layer)
+            .expect("No layer for type")
+    }
+
+    pub fn max_layer(&self) -> usize {
+        self.layers.len()
+    }
+
+    pub fn max_tilemap_layer(&self) -> usize {
+        self.layers
+            .iter()
+            .rev()
+            .position(|(k,u)| u == &LayerUse::Tilemap)
+            .expect("No max tilemap layer")
+    }
+
     pub fn add(&mut self, area: Area) {
         self.areas.insert(area.location(),area);
     }
@@ -147,6 +226,7 @@ impl Icons {
             loam: Self::index(server,atlas,"loam")?,
             blank: Self::index(server,atlas,"blank")?,
             mark: Self::index(server,atlas,"marker")?,
+            trees: Self::index(server,atlas,"trees")?,
         })
     }
 
@@ -177,6 +257,7 @@ impl Icons {
             "loam" => self.loam,
             "blank" => self.blank,
             "marker" => self.mark,
+            "trees" => self.trees,
             _ => self.blank,
         }
     }

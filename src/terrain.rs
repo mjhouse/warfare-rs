@@ -27,12 +27,11 @@ pub enum Soil {
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Foliage {
-    None,
-    Trees,
     Grass,
-    Fields,
-    Rocks,
+    Trees,
     Brush,
+    Crops,
+    Rocks,
 }
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]

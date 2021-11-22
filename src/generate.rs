@@ -77,40 +77,18 @@ fn generator_initialize_system(
             let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
             let atlas_handle = texture_atlases.add(texture_atlas);
     
-            let tilemap = Tilemap::builder()
+            let mut builder = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
                 .chunk_dimensions(crate::MAP_WIDTH, crate::MAP_HEIGHT, 1)
-                .texture_dimensions(175, 200)
-                .add_layer( // SOIL
-                    TilemapLayer {
-                        kind: LayerKind::Dense,
-                        ..Default::default()
-                    },
-                    0,
-                )
-                .add_layer( // GRASS
-                    TilemapLayer {
-                        kind: LayerKind::Dense,
-                        ..Default::default()
-                    },
-                    1,
-                )
-                .add_layer( // SELECTION
-                    TilemapLayer {
-                        kind: LayerKind::Sparse,
-                        ..Default::default()
-                    },
-                    2,
-                )
-                .add_layer( // OVERLAY
-                    TilemapLayer {
-                        kind: LayerKind::Dense,
-                        ..Default::default()
-                    },
-                    3,
-                )
-                .texture_atlas(atlas_handle)
+                .texture_dimensions(175, 200);
+
+            for (i,(kind,_)) in state.layers.iter().cloned().enumerate() {
+                builder = builder.add_layer(
+                    TilemapLayer { kind, ..Default::default() }, i );
+            }
+                
+            let tilemap = builder.texture_atlas(atlas_handle)
                 .finish()
                 .unwrap();
     
@@ -156,6 +134,8 @@ fn generator_configure_system(
             let width = (map.width().unwrap() * map.chunk_width()) as i32;
             let height = (map.height().unwrap() * map.chunk_height()) as i32;
 
+            map.clear_tiles(state.tiles.clone()).unwrap();
+
             // get icons (tile textures), the user-provided seed for the map,
             // and the user-provided factors for each tile attribute.
             let icons = Icons::from(&asset_server,&texture_atlas).unwrap();
@@ -172,13 +152,22 @@ fn generator_configure_system(
 
             // generate map
             let areas = generate(&mut state.generator,&icons,width,height);
+            let max = state.max_tilemap_layer();
 
             // convert areas to bevy_tilemap tiles
             let tiles = areas
                 .iter()
-                .map(|a| a.tiles())
+                .map(|a| a.tiles(max))
                 .flatten()
                 .collect::<Vec<Tile<_>>>();
+
+            state.tiles = tiles
+                .iter()
+                .map(|t| (
+                    t.point.into(),
+                    t.sprite_order,
+                ))
+                .collect();
 
             // update state
             state.icons = icons;

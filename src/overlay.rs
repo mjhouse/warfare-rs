@@ -2,7 +2,7 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::State;
+use crate::state::{State,LayerUse};
 use crate::area::Attribute;
 use crate::spectrum::Spectrum;
 
@@ -134,6 +134,8 @@ fn overlay_update_system(
         if let Some(spectrum) = state.overlay.get(&state.terrain.overlay) {
             let mut tiles = vec![];
             let mut points = vec![];
+
+            let i = state.get_layer(LayerUse::Overlay);
     
             for y in 0..height {
                 for x in 0..width {
@@ -164,12 +166,12 @@ fn overlay_update_system(
     
                     tiles.push(Tile {
                         point: point,
-                        sprite_order: 3,
+                        sprite_order: i,
                         sprite_index: texture,
                         tint: overlay,
                     });
 
-                    points.push((point,3));
+                    points.push((point,i));
                 }
             }
     
