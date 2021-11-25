@@ -3,7 +3,7 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::state::{State,LayerUse};
-use crate::camera::Camera;
+use crate::systems::camera::Camera;
 use crate::math::MidRound;
 
 pub struct SelectionPlugin;
@@ -189,6 +189,7 @@ fn selected_highlight_system(
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
             let i = state.get_layer(LayerUse::Selection);
+            let m = state.textures.get("mark");
 
             if let Err(e) = tilemap.clear_tile(selection.selected,i) {
                 log::warn!("{:?}",e);
@@ -201,7 +202,7 @@ fn selected_highlight_system(
                 let result = tilemap.insert_tile(Tile {
                     point: selection.selected,
                     sprite_order: i,
-                    sprite_index: state.icons.mark,
+                    sprite_index: m,
                     tint: Color::WHITE,
                 });
 

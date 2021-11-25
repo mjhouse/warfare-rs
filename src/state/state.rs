@@ -6,9 +6,12 @@ use bevy_tilemap::point::Point3;
 use bevy_tilemap::chunk::LayerKind;
 
 use crate::area::{Location,Area,Attribute,bounds};
-use crate::terrain::{Soil};
+use crate::generation::{Soil};
 use crate::spectrum::Spectrum;
-use crate::generator::{Factors,Generator};
+use crate::generation::Factors;
+use crate::generation::Generator;
+use crate::resources::Textures;
+
 use crate::error::{Error,Result};
 
 #[derive(Clone,Eq,PartialEq)]
@@ -27,36 +30,10 @@ pub struct Terrain {
     pub update: bool,
 }
 
-#[derive(Default, Clone)]
-pub struct Icons {
-    pub grass1: usize,
-    pub grass2: usize,
-    pub grass3: usize,
-    pub grass4: usize,
-    pub water: usize,
-    pub clay: usize,
-    pub sand: usize,
-    pub silt: usize,
-    pub peat: usize,
-    pub chalk: usize,
-    pub loam: usize,
-    pub blank: usize,
-    pub mark: usize,
-    pub trees: usize,
-}
-
-#[derive(Default, Clone)]
-pub struct Resources {
-    pub textures: Vec<HandleUntyped>,
-    pub fonts: Vec<HandleUntyped>,
-    pub loaded_textures: bool,
-    pub loaded_fonts: bool,
-}
-
 #[derive(Clone)]
 pub struct State {
-    /// textures and other resources
-    pub resources: Resources,
+    /// tile icon resources
+    pub textures: Textures,
 
     /// the map layers to build
     pub layers: Vec<(LayerKind,LayerUse)>,
@@ -79,9 +56,6 @@ pub struct State {
     /// terrain flags and information
     pub terrain: Terrain,
 
-    /// tile icon resources
-    pub icons: Icons,
-
     /// resource loaded flag
     pub loaded: bool,
 
@@ -93,7 +67,7 @@ impl Default for State {
 
     fn default() -> Self {
         Self {
-            resources: Default::default(),
+            textures: Default::default(),
             layers: vec![
                 (LayerKind::Dense,  LayerUse::Tilemap),
                 (LayerKind::Dense,  LayerUse::Tilemap),
@@ -107,7 +81,6 @@ impl Default for State {
             tiles: Default::default(),
             overlay: Default::default(),
             terrain: Default::default(),
-            icons: Default::default(),
             loaded: Default::default(),
             turn: Default::default(),
         }
@@ -147,9 +120,10 @@ impl State {
     }
 
     pub fn get_texture(&self, loc: &Location) -> usize {
+        let blank = self.textures.get("blank");
         match self.areas.get(loc) {
-            Some(a) => a.texture().unwrap_or(self.icons.blank),
-            None => self.icons.blank,
+            Some(a) => a.texture().unwrap_or(blank),
+            None => blank,
         }
     }
 
@@ -207,68 +181,4 @@ impl State {
         let s = area.moisture() as f32;
         s / 100.0
     }
-}
-
-impl Icons {
-
-    pub fn from(server: &AssetServer, atlas: &TextureAtlas) -> Result<Self> {
-        Ok(Self {
-            water: Self::index(server,atlas,"water")?,
-            grass1: Self::index(server,atlas,"grass_1")?,
-            grass2: Self::index(server,atlas,"grass_2")?,
-            grass3: Self::index(server,atlas,"grass_3")?,
-            grass4: Self::index(server,atlas,"grass_4")?,
-            clay: Self::index(server,atlas,"clay")?,
-            sand: Self::index(server,atlas,"sand")?,
-            silt: Self::index(server,atlas,"silt")?,
-            peat: Self::index(server,atlas,"peat")?,
-            chalk: Self::index(server,atlas,"chalk")?,
-            loam: Self::index(server,atlas,"loam")?,
-            blank: Self::index(server,atlas,"blank")?,
-            mark: Self::index(server,atlas,"marker")?,
-            trees: Self::index(server,atlas,"trees")?,
-        })
-    }
-
-    pub fn get(&self, soil: &Soil) -> usize {
-        match soil {
-            Soil::Clay => self.clay,
-            Soil::Sand => self.sand,
-            Soil::Silt => self.silt,
-            Soil::Peat => self.peat,
-            Soil::Chalk => self.chalk,
-            Soil::Loam => self.loam,
-            _ => self.blank,
-        }
-    }
-
-    pub fn get_str(&self, name: &str) -> usize {
-        match name {
-            "water" => self.water,
-            "grass1" => self.grass1,
-            "grass2" => self.grass2,
-            "grass3" => self.grass3,
-            "grass4" => self.grass4,
-            "clay" => self.clay,
-            "sand" => self.sand,
-            "silt" => self.silt,
-            "peat" => self.peat,
-            "chalk" => self.chalk,
-            "loam" => self.loam,
-            "blank" => self.blank,
-            "marker" => self.mark,
-            "trees" => self.trees,
-            _ => self.blank,
-        }
-    }
-
-
-    fn index(server: &AssetServer, atlas: &TextureAtlas, name: &str) -> Result<usize> {
-        let n = format!("textures/{}.png",name);
-        match atlas.get_texture_index(&server.get_handle(n.as_str())) {
-            Some(i) => Ok(i),
-            _ => Err(Error::TextureNotFound),
-        }
-    }
-
 }

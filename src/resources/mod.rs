@@ -1,3 +1,4 @@
+
 mod textures;
 
-pub use textures::TextureResource;
+pub use textures::Textures;

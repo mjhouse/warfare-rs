@@ -161,7 +161,7 @@ fn overlay_update_system(
                     // otherwise get a blank one
                     let texture = match state.terrain.overlay {
                         Attribute::None => state.get_texture(&point),
-                        _ => state.icons.blank,
+                        _ => state.textures.get("blank"),
                     };
     
                     tiles.push(Tile {

@@ -4,6 +4,8 @@ use std::fmt::{Display,Formatter,Result,Debug};
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
+use crate::generation::WeatherType;
+
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Biome {
     None,     // no biome value
@@ -45,24 +47,13 @@ pub enum Structure {
 }
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
-pub enum Weather {
-    Clear,
-    Cloudy,
-    Rain,
-    Storm,
-    Snow,
-    Hail,
-    Fog,
-}
-
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Time {
     Day,
     Night,
 }
 
 /// stack of enums for everything that a tile contains
-pub struct Terrain((Biome,Soil,Foliage,Structure,Weather,Time));
+pub struct Terrain((Biome,Soil,Foliage,Structure,WeatherType,Time));
 
 impl Default for Biome {
     fn default() -> Self { Self::None }

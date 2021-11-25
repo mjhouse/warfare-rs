@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicUsize,Ordering};
 use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
 
-use crate::terrain::{Soil,Biome};
+use crate::generation::{Soil,Biome};
 use std::fmt::{Display,Formatter,Result,Debug};
 
 static ID: AtomicUsize = AtomicUsize::new(0);

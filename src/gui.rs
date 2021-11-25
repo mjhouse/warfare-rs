@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
-use crate::terrain::{Biome,Soil};
+use crate::generation::{Biome,Soil};
 use crate::state::State;
 
 pub struct GuiPlugin;

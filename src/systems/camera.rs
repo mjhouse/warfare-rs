@@ -4,10 +4,18 @@ use bevy::prelude::*;
 pub struct CameraPlugin;
 
 pub struct Camera {
+    /// the scale level (zoom)
+    pub scale: f32,
+
+    /// the speed of pan operations
+    pub pan_speed: f32,
+
+    /// the speed of zoom operations
+    pub zoom_speed: f32,
+    
     /// the position of the cursor
     pub position: Vec2,
-    /// the speed of zoom/pan operations
-    pub speed: f32,
+    
     /// the button that triggers camera panning
 	pub button: MouseButton,
 }
@@ -15,8 +23,10 @@ pub struct Camera {
 impl Default for Camera {
 	fn default() -> Self {
 		Self {
+            scale: 1.25,
+            pan_speed: 1.75,
+            zoom_speed: 0.25,
             position: Vec2::ZERO,
-            speed: 1.75,
             button: MouseButton::Right,
 		}
 	}
@@ -41,29 +51,32 @@ fn camera_movement_system(
             }
 
             if scroll_delta != 0.0 {
-                // scale (zoom) view based on mouse wheel delta
-                let z_value = scroll_delta * camera.speed;
-                transform.scale += Vec3::new(z_value, z_value, z_value);
+                camera.scale += scroll_delta * camera.zoom_speed;
+                camera.scale = camera.scale.max(1.25);
+                let s = camera.scale;
 
-                // minimum values for zoom are 1.0
-                if transform.scale.x < 1.0 { transform.scale.x = 1.0; }
-                if transform.scale.y < 1.0 { transform.scale.y = 1.0; }
-                if transform.scale.z < 1.0 { transform.scale.z = 1.0; }
-
-                // let cx = camera.position.x / 100.0 * camera.speed * transform.scale.x;
-                // let cy = camera.position.y / 100.0 * camera.speed * transform.scale.y;
-
-                // transform.translation -= Vec3::new(cx, cy, 0.0);
+                transform.translation.x = (transform.translation.x / s).round() * s;
+                transform.translation.y = (transform.translation.y / s).round() * s;
+                transform.translation.z = (transform.translation.z / s).round() * s;
             }
 
             if inputs.pressed(camera.button) {
                 let (axis_x,axis_y) = (move_delta.x,move_delta.y);
+                let s = camera.scale;
 
-                let x_value = axis_x * camera.speed * transform.scale.x;
-                let y_value = axis_y * camera.speed * transform.scale.y;
+                let x_value = axis_x * camera.pan_speed * s;
+                let y_value = axis_y * camera.pan_speed * s;
 
                 transform.translation += Vec3::new(-x_value, y_value, 0.0);
+
+                transform.translation.x = (transform.translation.x / s).round() * s;
+                transform.translation.y = (transform.translation.y / s).round() * s;
+                transform.translation.z = (transform.translation.z / s).round() * s;
             }
+
+            transform.scale.x = camera.scale;
+            transform.scale.y = camera.scale;
+            transform.scale.z = camera.scale;
         }
     }
 }

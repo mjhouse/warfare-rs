@@ -1,27 +1,33 @@
 use std::collections::HashMap;
-use bevy::sprite::TextureAtlas;
-use bevy::asset::AssetServer;
 
-pub struct TextureResource {
+use bevy::sprite::TextureAtlas;
+use bevy::asset::{AssetServer,HandleUntyped};
+
+use crate::generation::Soil;
+
+#[derive(Default,Clone)]
+pub struct Textures {
     textures: HashMap<&'static str,usize>,
+    pub handles: Vec<HandleUntyped>,
+    pub loaded: bool,
 }
 
 fn index(server: &AssetServer, atlas: &TextureAtlas, name: &str) -> usize {
+    let path = format!("textures/{}.png",name);
     atlas.get_texture_index(
-        &server.get_handle(
-            format!("textures/{}.png",name).as_str()))
-                .expect(format!("Texture doesn't exist: {}",name).as_str())
+        &server.get_handle(path.as_str()))
+            .expect(format!("Texture doesn't exist: {}",path).as_str())
 }
 
-impl TextureResource {
+impl Textures {
 
-    pub fn new(server: &AssetServer, atlas: &TextureAtlas) -> Self {
+    pub fn load(&mut self, server: &AssetServer, atlas: &TextureAtlas) {
         let labels = vec![
             "water",
-            "grass_1",
-            "grass_2",
-            "grass_3",
-            "grass_4",
+            "grass1",
+            "grass2",
+            "grass3",
+            "grass4",
             "clay",
             "sand",
             "silt",
@@ -29,19 +35,30 @@ impl TextureResource {
             "chalk",
             "loam",
             "blank",
+            "trees",
             "mark",
         ];
 
-        let textures = labels
+        self.textures = labels
             .iter()
             .map(|&l| ( l, index(server,atlas,l) ))
             .collect();
-
-        Self { textures }
     }
 
     pub fn get(&self, label: &str) -> usize {
         self.textures[label]
+    }
+
+    pub fn soil(&self, soil: &Soil) -> usize {
+        match soil {
+            Soil::Clay => self.get("clay"),
+            Soil::Sand => self.get("sand"),
+            Soil::Silt => self.get("silt"),
+            Soil::Peat => self.get("peat"),
+            Soil::Chalk => self.get("chalk"),
+            Soil::Loam => self.get("loam"),
+            Soil::None => self.get("blank"),
+        }
     }
 
 }

@@ -11,20 +11,16 @@ const MAP_HEIGHT: u32 = 30;
 const MAP_WIDTH: u32 = 30;
 
 mod math;
-mod camera;
 mod area;
 mod generate;
-mod generator;
-mod overlay;
 mod gui;
-mod selection;
-mod state;
 mod spectrum;
 mod error;
-mod terrain;
 
 mod resources;
 mod generation;
+mod systems;
+mod state;
 
 use state::State;
 
@@ -32,7 +28,7 @@ fn main() {
     pretty_env_logger::init();
 
     App::build()
-        .insert_resource(Msaa { samples: 8 })
+        // .insert_resource(Msaa { samples: 8 })
         .insert_resource(WindowDescriptor {
             title: "Warfare".to_string(),
             width: 1036.,
@@ -43,39 +39,44 @@ fn main() {
             ..Default::default()
         })
         .init_resource::<State>()
+
         .add_plugins(DefaultPlugins)
         .add_plugins(TilemapDefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
 
         // set up camera plugin/system
-        .add_plugin(camera::CameraPlugin)
-        .add_startup_system(camera::setup.system())
+        .add_plugin(systems::camera::CameraPlugin)
+        .add_startup_system(systems::camera::setup.system())
 
         // set up selection plugin/system
-        .add_plugin(selection::SelectionPlugin)
-        .add_startup_system(selection::setup.system())
+        .add_plugin(systems::selection::SelectionPlugin)
+        .add_startup_system(systems::selection::setup.system())
 
         // set up overlay plugin/system
-        .add_plugin(overlay::OverlayPlugin)
-        .add_startup_system(overlay::setup.system())
+        .add_plugin(systems::overlay::OverlayPlugin)
+        .add_startup_system(systems::overlay::setup.system())
         
+        // set up window icon plugin
+        .add_plugin(systems::icon::IconPlugin)
+
         // set up gui plugin/system
         .add_plugin(gui::GuiPlugin)
         .add_startup_system(gui::setup.system())
 
         // set up generator plugin/system
         .add_plugin(generate::GeneratorPlugin)
-        .add_startup_system(generate::setup.system())
 
         .add_startup_system(setup.system())
         .run()
 }
 
 fn setup(
-    mut _commands: Commands,
     mut state: ResMut<State>,
-    asset_server: Res<AssetServer>,
+    assets: Res<AssetServer>,
 ) {
-    state.resources.textures = asset_server.load_folder("textures").unwrap();
+    state.textures.handles = assets
+        .load_folder("textures")
+        .expect("Could not load textures");
+
     state.terrain.update = true; // force terrain generation
 }

@@ -3,8 +3,14 @@ use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use std::collections::HashMap;
 
-use crate::terrain::{Biome,Soil,Foliage};
-use crate::state::Icons;
+use crate::generation::{
+    Factors,
+    Biome,
+    Soil,
+    Foliage,
+};
+
+use crate::resources::Textures;
 use crate::area::bounds;
 
 #[allow(dead_code)]
@@ -36,17 +42,6 @@ struct Values {
     foliage: HashMap<i32,Foliage>,
 }
 
-#[derive(Clone)]
-pub struct Factors {
-    pub elevation: u8,
-    pub temperature: u8,
-    pub moisture: u8,
-    pub rockiness: u8,
-    pub fertility: u8,
-    pub biome: Biome,
-    pub soil: Soil,
-}
-
 #[derive(Default,Clone)]
 pub struct Generator {
     resources: Resources,
@@ -62,20 +57,6 @@ impl Default for Resources {
             worley:  Worley::new().set_seed(0),
             value:   Value::new().set_seed(0),
             random:  Pcg64::seed_from_u64(0),
-        }
-    }
-}
-
-impl Default for Factors {
-    fn default() -> Self {
-        Self {
-            elevation: 50,
-            temperature: 50,
-            moisture: 50,
-            rockiness: 50,
-            fertility: 50,
-            biome: Biome::None,
-            soil: Soil::None,
         }
     }
 }
@@ -333,9 +314,9 @@ impl Generator {
         }
     }
 
-    pub fn textures( &mut self, icons: &Icons, x: i32, y: i32 ) -> Vec<usize> {
+    pub fn textures( &mut self, textures: &Textures, x: i32, y: i32 ) -> Vec<usize> {
         let mut result = vec![
-            icons.get(&self.soil(x,y)),
+            textures.soil(&self.soil(x,y)),
         ];
 
 
@@ -344,24 +325,24 @@ impl Generator {
         let t = self.foliage(x,y);
 
         if m > 99 {
-            result.push(icons.get_str("water"));
+            result.push(textures.get("water"));
         }
         else {
             if f > 75 {
-                result.push(icons.get_str("grass1"));
+                result.push(textures.get("grass1"));
             }
             else if f > 50 {
-                result.push(icons.get_str("grass2"));
+                result.push(textures.get("grass2"));
             }
             else if f > 25 {
-                result.push(icons.get_str("grass3"));
+                result.push(textures.get("grass3"));
             }
             else {
-                result.push(icons.get_str("grass4"));
+                result.push(textures.get("grass4"));
             }
 
             if t == Foliage::Trees {
-                result.push(icons.get_str("trees"));
+                result.push(textures.get("trees"));
             }
         }
 

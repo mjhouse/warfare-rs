@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-# bevy-related crates
-bevy = "0.5"
-bevy_egui = "0.7"
-bevy_tilemap = "0.4.0"
+bevy = "0.5"           # game engine
+winit = "0.24.0"       # for window icon
+image = "0.23.14"      # to load window icon
+bevy_egui = "0.7"      # in-game gui
+bevy_tilemap = "0.4.0" # maps and hex tiles
 
 # noise for map generation
 rand = "0.8.4"
