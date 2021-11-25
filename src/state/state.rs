@@ -7,9 +7,11 @@ use bevy_tilemap::chunk::LayerKind;
 
 use crate::area::{Location,Area,Attribute,bounds};
 use crate::generation::{Soil};
-use crate::spectrum::Spectrum;
+
 use crate::generation::Factors;
 use crate::generation::Generator;
+
+use crate::resources::Spectrum;
 use crate::resources::Textures;
 
 use crate::error::{Error,Result};

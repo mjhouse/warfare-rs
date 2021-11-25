@@ -14,7 +14,6 @@ mod math;
 mod area;
 mod generate;
 mod gui;
-mod spectrum;
 mod error;
 
 mod resources;

@@ -3,8 +3,8 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::state::{State,LayerUse};
+use crate::resources::Spectrum;
 use crate::area::Attribute;
-use crate::spectrum::Spectrum;
 
 pub struct OverlayPlugin;
 
