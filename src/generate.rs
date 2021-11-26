@@ -11,8 +11,7 @@ use bevy::{
 use bevy_tilemap::prelude::*;
 
 use crate::area::{Area};
-use crate::systems::overlay::Overlay;
-use crate::state::State;
+use crate::state::{State,Action};
 use crate::resources::Textures;
 use crate::generation::Generator;
 
@@ -117,9 +116,9 @@ fn generator_configure_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
     mut map_query: Query<&mut Tilemap>,
-    mut ctl_query: Query<&mut Overlay>,
 ) {
-    if state.terrain.update {
+    // check if update is requested for terrain generation
+    if state.events.receive(Action::UpdateTerrain) {
         if let Ok(mut map) = map_query.single_mut() {
 
             // get texture atlas that contains loaded tile textures
@@ -141,7 +140,9 @@ fn generator_configure_system(
             state.textures.load(&asset_server,&texture_atlas);
 
             let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
+
             let factors = state.factors.clone();
+            let calendar = state.calendar.clone();
 
             // create a map generator
             state.generator = Generator::new(
@@ -149,7 +150,7 @@ fn generator_configure_system(
                 width,
                 height,
                 factors,
-                state.turn);
+                calendar);
 
             // generate map
             let areas = generate(&mut state,width,height);
@@ -177,14 +178,12 @@ fn generator_configure_system(
             map.insert_tiles(tiles).unwrap();
             map.spawn_chunk((0, 0)).unwrap();
 
-            // set load flags
-            state.terrain.update = false;
+            // set loaded flag
             state.loaded = true;
 
             // update overlay
-            if let Ok(mut c) = ctl_query.single_mut() {
-                c.update = true;
-            }
+            state.events.send(Action::UpdateOverlay);
+            state.events.clear(Action::UpdateTerrain);
         }
     }
 }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 use crate::generation::{Biome,Soil};
-use crate::state::State;
+use crate::state::{State,Action};
 
 pub struct GuiPlugin;
 
@@ -107,15 +107,15 @@ fn gui_display_system(
 
             ui.horizontal(|ui| {
                 if ui.button("Update").clicked() {
-                    state.terrain.update = true;
+                    state.events.send(Action::UpdateTerrain);
                 }
     
                 if ui.button("End Turn").clicked() {
-                    state.turn += 1;
-                    state.terrain.update = true;
+                    state.calendar.advance();
+                    state.events.send(Action::UpdateTerrain);
                 }
 
-                ui.label(format!("Turn: {}",state.turn));
+                ui.label(format!("{}",state.calendar));
             });
 
             ui.separator();

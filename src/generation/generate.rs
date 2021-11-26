@@ -10,6 +10,7 @@ use crate::generation::{
     Foliage,
 };
 
+use crate::state::{Calendar,Season};
 use crate::resources::Textures;
 use crate::area::bounds;
 
@@ -19,6 +20,7 @@ struct Context {
     seed: u32,
     width: i32,
     height: i32,
+    calendar: Calendar,
 }
 
 #[allow(dead_code)]
@@ -63,7 +65,7 @@ impl Default for Resources {
 
 impl Generator {
 
-    pub fn new( seed: u32, width: i32, height: i32, factors: Factors, turn: u32 ) -> Self {
+    pub fn new( seed: u32, width: i32, height: i32, factors: Factors, calendar: Calendar ) -> Self {
         Self {
             resources: Resources {
                 simplex: SuperSimplex::new().set_seed(seed),
@@ -75,6 +77,7 @@ impl Generator {
                 seed: seed,
                 width: width,
                 height: height,
+                calendar: calendar,
             },
             factors: factors,
             values: Values {
@@ -388,6 +391,22 @@ impl Generator {
         let tmax = bounds::MAX_TEMP;
         let tmin = bounds::MIN_TEMP;
 
+        let i = x as f32;
+        let j = y as f32;
+
+        // get seasonal weight and regional variation
+        let w = 10.0;
+        let k = ((self.get_value(i,j) + 1.) / 2.0) * -1.;
+
+        // adjust 'k' based on the season and multiply by
+        // the weight
+        let s = match self.context.calendar.season() {
+            Season::Winter => k * 1.0,
+            Season::Autumn => k * 0.5,
+            Season::Spring => k * 0.2,
+            _ => 0.0,
+        } * w;
+
         let mut f;
         let mut e;
         let mut v;
@@ -403,11 +422,19 @@ impl Generator {
         v = (1.0 - e)/2.0 + f/2.0;
 
         // scale into temperature range
-        v * (tmax + tmin.abs()) - tmin.abs()
+        v * (tmax + tmin.abs()) - tmin.abs() + s
     }
 
     fn make_moisture( &mut self, x: i32, y: i32 ) -> u8 {
         let emax = bounds::MAX_ELEV;
+
+        // adjust moisture based on the season
+        let s = match self.context.calendar.season() {
+            Season::Winter => 1,
+            Season::Autumn => 2,
+            Season::Spring => 4,
+            _ => 0,
+        } as u8;
 
         let mut f;
         let mut e;
@@ -422,7 +449,7 @@ impl Generator {
         // scale double max X moisture, divide
         v = (f * e * 200.0) / 2.0;
 
-        (v as u8).min(100)
+        (v as u8 + s).min(100)
     }
 
     fn make_rockiness( &mut self, x: i32, y: i32 ) -> u8 {

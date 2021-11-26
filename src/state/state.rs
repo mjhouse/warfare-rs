@@ -14,7 +14,7 @@ use crate::generation::Generator;
 use crate::resources::Spectrum;
 use crate::resources::Textures;
 
-use crate::state::Events;
+use crate::state::{Events,Calendar};
 use crate::error::{Error,Result};
 
 #[derive(Clone,Eq,PartialEq)]
@@ -30,7 +30,6 @@ pub struct Terrain {
     pub overlay: Attribute,
     pub seed: String,
     pub size: String,
-    pub update: bool,
 }
 
 #[derive(Clone)]
@@ -62,11 +61,10 @@ pub struct State {
     /// resource loaded flag
     pub loaded: bool,
 
-    /// the turn number
-    pub turn: u32,
-
     /// events for systems
     pub events: Events,
+
+    pub calendar: Calendar,
 }
 
 impl Default for State {
@@ -88,8 +86,8 @@ impl Default for State {
             overlay: Default::default(),
             terrain: Default::default(),
             loaded: Default::default(),
-            turn: Default::default(),
             events: Default::default(),
+            calendar: Default::default(),
         }
     }
 

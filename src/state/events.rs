@@ -1,58 +1,30 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
-/// The target system. There should be one 
-/// flag for each system in the game.
+/// Actions for systems to perform
 #[derive(Clone,Eq,PartialEq,Hash)]
-pub enum Target {
-    Camera,
-    Icon,
-    Overlay,
-    Selection,
-    Generate,
-}
-
-/// Action for target system to perform
-#[derive(Clone)]
 pub enum Action {
-    Update,
+    UpdateTerrain,
+    UpdateOverlay,
+    LoadTextures,
 }
 
 #[derive(Default,Clone)]
 pub struct Events {
-    events: HashMap<Target,Vec<Action>>,
+    events: HashSet<Action>,
 }
 
 impl Events {
 
-    pub fn send(&mut self, target: Target, action: Action) {
-        if let Some(e) = self.events.get_mut(&target) {
-            // if a queue of events already exists for target,
-            // add action to queue.
-            e.push(action);
-        }
-        else {
-            // if not, insert new queue
-            self.events.insert(target,vec![ action ]);
-        }
+    pub fn send(&mut self, action: Action) -> bool {
+        self.events.insert(action)
     }
 
-    pub fn receive(&mut self, target: Target) -> Vec<Action> {
-        let mut result = vec![];
-        if let Some(e) = self.events.get_mut(&target) {
-            // if a queue exists for the target, then drain
-            // all events and return.
-            result = e.drain(..).collect();
-        }
-        result
+    pub fn receive(&self, action: Action) -> bool {
+        self.events.contains(&action)
     }
 
-    pub fn size(&mut self, target: Target) -> usize {
-        let mut result = 0;
-        if let Some(e) = self.events.get_mut(&target) {
-            // get length of queue
-            result = e.len();
-        }
-        result
+    pub fn clear(&mut self, action: Action) -> bool {
+        self.events.remove(&action)
     }
 
 }

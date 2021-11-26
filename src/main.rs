@@ -21,7 +21,7 @@ mod generation;
 mod systems;
 mod state;
 
-use state::State;
+use crate::state::{State,Action};
 
 fn main() {
     pretty_env_logger::init();
@@ -53,7 +53,6 @@ fn main() {
 
         // set up overlay plugin/system
         .add_plugin(systems::overlay::OverlayPlugin)
-        .add_startup_system(systems::overlay::setup.system())
         
         // set up window icon plugin
         .add_plugin(systems::icon::IconPlugin)
@@ -77,6 +76,5 @@ fn setup(
         .load_folder("textures")
         .expect("Could not load textures");
 
-    state.terrain.update = true; // force terrain generation
-    // state.events.send(Target::Generate,Action::Update);
+    state.events.send(Action::UpdateTerrain);
 }

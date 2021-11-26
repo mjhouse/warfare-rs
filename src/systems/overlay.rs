@@ -2,16 +2,11 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::{State,LayerUse};
+use crate::state::{State,Action,LayerUse};
 use crate::resources::Spectrum;
 use crate::area::Attribute;
 
 pub struct OverlayPlugin;
-
-#[derive(Default)]
-pub struct Overlay {
-    pub update: bool,
-}
 
 fn overlay_setup_system(
     mut state: ResMut<State>,
@@ -70,7 +65,6 @@ fn overlay_setup_system(
 fn overlay_update_system(
     mut state: ResMut<State>,
     mut keys: EventReader<KeyboardInput>,
-	mut ctl_query: Query<&mut Overlay>,
     mut map_query: Query<&mut Tilemap>,
 ) {
     if !state.loaded {
@@ -81,7 +75,6 @@ fn overlay_update_system(
         return;
     }
 
-    let mut overlay = ctl_query.single_mut().expect("Need overlay");
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
     let mut key_pressed = false;
@@ -127,7 +120,7 @@ fn overlay_update_system(
         }
     }
 
-    if key_pressed || overlay.update {
+    if key_pressed || state.events.receive(Action::UpdateOverlay) {
         let width = (tilemap.width().unwrap() * tilemap.chunk_width()) as i32;
         let height = (tilemap.height().unwrap() * tilemap.chunk_height()) as i32;
 
@@ -185,7 +178,7 @@ fn overlay_update_system(
                 }
             }
             
-            overlay.update = false;
+            state.events.clear(Action::UpdateOverlay);
         }
     }
 
@@ -197,10 +190,4 @@ impl Plugin for OverlayPlugin {
             .add_startup_system(overlay_setup_system.system())
             .add_system(overlay_update_system.system());
 	}
-}
-
-pub fn setup(mut commands: Commands) {
-	commands
-		.spawn()
-		.insert(Overlay::default());
 }
