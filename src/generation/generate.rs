@@ -326,22 +326,28 @@ impl Generator {
         let m = self.moisture(x,y);
         let f = self.fertility(x,y);
         let t = self.foliage(x,y);
+        let j = self.temperature(x,y);
 
         if m > 99 {
             result.push(textures.get("water"));
         }
         else {
-            if f > 75 {
-                result.push(textures.get("grass1"));
-            }
-            else if f > 50 {
-                result.push(textures.get("grass2"));
-            }
-            else if f > 25 {
-                result.push(textures.get("grass3"));
+            if j < 0. {
+                result.push(textures.get("snow"));
             }
             else {
-                result.push(textures.get("grass4"));
+                if f > 75 {
+                    result.push(textures.get("grass1"));
+                }
+                else if f > 50 {
+                    result.push(textures.get("grass2"));
+                }
+                else if f > 25 {
+                    result.push(textures.get("grass3"));
+                }
+                else {
+                    result.push(textures.get("grass4"));
+                }
             }
 
             if t == Foliage::Trees {

@@ -37,6 +37,7 @@ impl Textures {
             "blank",
             "trees",
             "mark",
+            "snow",
         ];
 
         self.textures = labels
