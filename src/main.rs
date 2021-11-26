@@ -78,4 +78,5 @@ fn setup(
         .expect("Could not load textures");
 
     state.terrain.update = true; // force terrain generation
+    // state.events.send(Target::Generate,Action::Update);
 }

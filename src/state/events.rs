@@ -7,7 +7,8 @@ pub enum Target {
     Camera,
     Icon,
     Overlay,
-    Selection
+    Selection,
+    Generate,
 }
 
 /// Action for target system to perform
