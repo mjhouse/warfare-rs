@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicUsize,Ordering};
 use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
 
-use crate::generation::{Soil,Biome};
+use crate::generation::{Soil,Biome,Generator};
 use std::fmt::{Display,Formatter,Result,Debug};
 
 static ID: AtomicUsize = AtomicUsize::new(0);
@@ -46,9 +46,6 @@ pub struct Area {
     /// The texture stack for this area
     textures: Vec<usize>,
 
-    /// The texture layer
-    order: usize,
-
     /// The location of the area in the map
     location: Location,
 
@@ -72,6 +69,9 @@ pub struct Area {
 
     /// The current temperature of the area (in celsius)
     temperature: f32,
+
+    /// The degree to which this tile impedes movement
+    impedance: u8,
 }
 
 impl Area {
@@ -127,18 +127,30 @@ impl Area {
         self
     }
 
+    pub fn with_impedance<T: Into<u8>>(mut self, v: T) -> Self {
+        self.impedance = v.into();
+        self
+    }
+
     pub fn build(mut self) -> Self {
         use bounds::*;
 
         self.moisture = self.moisture
             .min(100);
+            
         self.rocks = self.rocks
             .min(100);
+
         self.fertility = self.fertility
             .min(100);
+
+        self.impedance = self.impedance
+            .min(100);
+
         self.elevation = self.elevation
             .min(MAX_ELEV)
             .max(MIN_ELEV);
+
         self.temperature = self.temperature
             .min(MAX_TEMP)
             .max(MIN_TEMP);
@@ -186,6 +198,10 @@ impl Area {
 
     pub fn temperature(&self) -> f32 {
         self.temperature.clone()
+    }
+
+    pub fn impedance(&self) -> u8 {
+        self.impedance.clone()
     }
 
     pub fn tiles(&self, max: usize) -> Vec<Tile<Point3>> {

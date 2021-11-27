@@ -42,6 +42,7 @@ struct Values {
     biome: HashMap<i32,Biome>,
     soil: HashMap<i32,Soil>,
     foliage: HashMap<i32,Foliage>,
+    impedance: HashMap<i32,u8>,
 }
 
 #[derive(Default,Clone)]
@@ -89,6 +90,7 @@ impl Generator {
                 biome: HashMap::new(),
                 soil: HashMap::new(),
                 foliage: HashMap::new(),
+                impedance: HashMap::new(),
             },
         }
     }
@@ -101,6 +103,16 @@ impl Generator {
         y = y + h / 2;
             
         x + y * w
+    }
+
+    fn point( &self, i: i32 ) -> (i32,i32) {
+        let w = self.context.width;
+        let h = self.context.height;
+        
+        let x = (i % w) - (w / 2);
+        let y = (i / w) - (h / 2);
+
+        (x,y)
     }
 
     #[allow(dead_code)]
@@ -189,43 +201,47 @@ impl Generator {
         self.get_noise(&self.resources.value,x,y)
     }
 
-    fn get_elevation( &self, x: i32, y: i32 ) -> Option<&f32> {
-        self.values.elevation.get(&self.index(x,y))
+    fn get_elevation( &self, i: i32 ) -> Option<&f32> {
+        self.values.elevation.get(&i)
     }
 
-    fn get_temperature( &self, x: i32, y: i32 ) -> Option<&f32> {
-        self.values.temperature.get(&self.index(x,y))
+    fn get_temperature( &self, i: i32 ) -> Option<&f32> {
+        self.values.temperature.get(&i)
     }
 
-    fn get_moisture( &self, x: i32, y: i32 ) -> Option<&u8> {
-        self.values.moisture.get(&self.index(x,y))
+    fn get_moisture( &self, i: i32 ) -> Option<&u8> {
+        self.values.moisture.get(&i)
     }
 
-    fn get_rockiness( &self, x: i32, y: i32 ) -> Option<&u8> {
-        self.values.rockiness.get(&self.index(x,y))
+    fn get_rockiness( &self, i: i32 ) -> Option<&u8> {
+        self.values.rockiness.get(&i)
     }
 
-    fn get_fertility( &self, x: i32, y: i32 ) -> Option<&u8> {
-        self.values.fertility.get(&self.index(x,y))
+    fn get_fertility( &self, i: i32 ) -> Option<&u8> {
+        self.values.fertility.get(&i)
     }
 
-    fn get_biome( &self, x: i32, y: i32 ) -> Option<&Biome> {
-        self.values.biome.get(&self.index(x,y))
+    fn get_biome( &self, i: i32 ) -> Option<&Biome> {
+        self.values.biome.get(&i)
     }
 
-    fn get_soil( &self, x: i32, y: i32 ) -> Option<&Soil> {
-        self.values.soil.get(&self.index(x,y))
+    fn get_soil( &self, i: i32 ) -> Option<&Soil> {
+        self.values.soil.get(&i)
     }
 
-    fn get_foliage( &self, x: i32, y: i32 ) -> Option<&Foliage> {
-        self.values.foliage.get(&self.index(x,y))
+    fn get_foliage( &self, i: i32 ) -> Option<&Foliage> {
+        self.values.foliage.get(&i)
+    }
+
+    fn get_impedance( &self, i: i32 ) -> Option<&u8> {
+        self.values.impedance.get(&i)
     }
 
     pub fn elevation( &mut self, x: i32, y: i32 ) -> f32 {
-        match self.get_elevation(x,y) {
+        let i = self.index(x,y);
+        match self.get_elevation(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_elevation(x,y);
                 self.values.elevation.insert(i,v);
                 v
@@ -234,10 +250,10 @@ impl Generator {
     }
 
     pub fn temperature( &mut self, x: i32, y: i32 ) -> f32 {
-        match self.get_temperature(x,y) {
+        let i = self.index(x,y);
+        match self.get_temperature(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_temperature(x,y);
                 self.values.temperature.insert(i,v);
                 v
@@ -246,10 +262,10 @@ impl Generator {
     }
 
     pub fn moisture( &mut self, x: i32, y: i32 ) -> u8 {
-        match self.get_moisture(x,y) {
+        let i = self.index(x,y);
+        match self.get_moisture(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_moisture(x,y);
                 self.values.moisture.insert(i,v);
                 v
@@ -258,10 +274,10 @@ impl Generator {
     }
 
     pub fn rockiness( &mut self, x: i32, y: i32 ) -> u8 {
-        match self.get_rockiness(x,y) {
+        let i = self.index(x,y);
+        match self.get_rockiness(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_rockiness(x,y);
                 self.values.rockiness.insert(i,v);
                 v
@@ -270,10 +286,10 @@ impl Generator {
     }
 
     pub fn fertility( &mut self, x: i32, y: i32 ) -> u8 {
-        match self.get_fertility(x,y) {
+        let i = self.index(x,y);
+        match self.get_fertility(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_fertility(x,y);
                 self.values.fertility.insert(i,v);
                 v
@@ -282,10 +298,10 @@ impl Generator {
     }
 
     pub fn biome( &mut self, x: i32, y: i32 ) -> Biome {
-        match self.get_biome(x,y) {
+        let i = self.index(x,y);
+        match self.get_biome(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_biome(x,y);
                 self.values.biome.insert(i,v);
                 v
@@ -294,10 +310,10 @@ impl Generator {
     }
 
     pub fn soil( &mut self, x: i32, y: i32 ) -> Soil {
-        match self.get_soil(x,y) {
+        let i = self.index(x,y);
+        match self.get_soil(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_soil(x,y);
                 self.values.soil.insert(i,v);
                 v
@@ -306,12 +322,24 @@ impl Generator {
     }
 
     pub fn foliage( &mut self, x: i32, y: i32 ) -> Foliage {
-        match self.get_foliage(x,y) {
+        let i = self.index(x,y);
+        match self.get_foliage(i) {
             Some(v) => *v,
             None => {
-                let i = self.index(x,y);
                 let v = self.make_foliage(x,y);
                 self.values.foliage.insert(i,v);
+                v
+            }
+        }
+    }
+
+    pub fn impedance( &mut self, x: i32, y: i32 ) -> u8 {
+        let i = self.index(x,y);
+        match self.get_impedance(i) {
+            Some(v) => *v,
+            None => {
+                let v = self.make_impedance(x,y);
+                self.values.impedance.insert(i,v);
                 v
             }
         }
@@ -329,7 +357,12 @@ impl Generator {
         let j = self.temperature(x,y);
 
         if m > 99 {
-            result.push(textures.get("water"));
+            if self.is_deep_water(x,y){
+                result.push(textures.get("water_deep"));
+            }
+            else {
+                result.push(textures.get("water_shallow"));
+            }
         }
         else {
             if j < 0. {
@@ -567,6 +600,35 @@ impl Generator {
         else {
             Foliage::Grass
         }
+    }
+
+    fn make_impedance( &mut self, x: i32, y: i32 ) -> u8 {
+        // if deep water, impedance is 100%
+        if self.is_deep_water(x,y) {
+            return 100;
+        }
+
+        let m = (self.moisture(x,y)  as f32 / 100.).powf(8.0);
+        let r = (self.rockiness(x,y) as f32 / 100.).powf(2.0);
+
+        let f1 = m * 85.;
+        let f2 = r * 90.;
+
+        let v = f1.max(f2).round();
+        (v as u8).max(0).min(100)
+    }
+
+    fn is_deep_water( &mut self, x: i32, y: i32 ) -> bool {
+        let is_water = self.moisture(x,y) == 100;        
+        let no_shore = self.index_group(x,y)
+            .into_iter()
+            .map(|i| {
+                let p = self.point(i);
+                self.moisture(p.0,p.1)
+            })
+            .all(|v| v == 100);
+
+        is_water && no_shore
     }
 
 }

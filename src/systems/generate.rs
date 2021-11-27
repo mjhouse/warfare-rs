@@ -36,6 +36,7 @@ fn generate(state: &mut State, width: i32, height: i32) -> Vec<Area> {
             let fertility = gen.fertility(x,y);
             let elevation = gen.elevation(x,y);
             let temperature = gen.temperature(x,y);
+            let impedance = gen.impedance(x,y);
             let textures = gen.textures(tex,x,y);
 
             let area = Area::create()
@@ -48,6 +49,7 @@ fn generate(state: &mut State, width: i32, height: i32) -> Vec<Area> {
                 .with_fertility(fertility)
                 .with_elevation(elevation)
                 .with_temperature(temperature)
+                .with_impedance(impedance)
                 .build();
 
             results.push(area);

@@ -24,6 +24,8 @@ impl Textures {
     pub fn load(&mut self, server: &AssetServer, atlas: &TextureAtlas) {
         let labels = vec![
             "water",
+            "water_deep",
+            "water_shallow",
             "grass1",
             "grass2",
             "grass3",

@@ -118,6 +118,7 @@ fn gui_display_system(
             let area = &state.terrain.selected;
 
             ui.monospace(format!("Id:          {}",area.id()));
+            ui.monospace(format!("Impedence:   {}",area.impedance()));
             ui.monospace(format!("Location:    {:?}",area.location()));
             ui.monospace(format!("Texture:     {}",area.texture().unwrap_or(0)));
             ui.monospace(format!("Biome:       {}",area.biome()));
