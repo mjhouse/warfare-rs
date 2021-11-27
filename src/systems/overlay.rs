@@ -2,7 +2,8 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::{State,Action,LayerUse};
+use crate::state::{State,Action};
+use crate::generation::{LayerUse};
 use crate::resources::Spectrum;
 use crate::area::Attribute;
 
@@ -128,7 +129,9 @@ fn overlay_update_system(
             let mut tiles = vec![];
             let mut points = vec![];
 
-            let i = state.get_layer(LayerUse::Overlay);
+            let i = state.layers
+                .get(&LayerUse::Overlay)
+                .expect("Must have overlay layer");
     
             for y in 0..height {
                 for x in 0..width {

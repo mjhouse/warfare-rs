@@ -10,19 +10,13 @@ use crate::generation::{Soil};
 
 use crate::generation::Factors;
 use crate::generation::Generator;
+use crate::generation::Layers;
 
 use crate::resources::Spectrum;
 use crate::resources::Textures;
 
 use crate::state::{Events,Calendar};
 use crate::error::{Error,Result};
-
-#[derive(Clone,Eq,PartialEq)]
-pub enum LayerUse {
-    Tilemap,
-    Selection,
-    Overlay,
-}
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -38,7 +32,7 @@ pub struct State {
     pub textures: Textures,
 
     /// the map layers to build
-    pub layers: Vec<(LayerKind,LayerUse)>,
+    pub layers: Layers,
 
     /// user-supplied factors that control generator
     pub factors: Factors,
@@ -72,13 +66,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             textures: Default::default(),
-            layers: vec![
-                (LayerKind::Dense,  LayerUse::Tilemap),
-                (LayerKind::Dense,  LayerUse::Tilemap),
-                (LayerKind::Dense,  LayerUse::Tilemap),
-                (LayerKind::Dense,  LayerUse::Overlay),
-                (LayerKind::Sparse, LayerUse::Selection),
-            ],
+            layers: Default::default(),
             factors: Default::default(),
             generator: Default::default(),
             areas: Default::default(),
@@ -94,25 +82,6 @@ impl Default for State {
 }
 
 impl State {
-
-    pub fn get_layer(&self, layer: LayerUse) -> usize {
-        self.layers
-            .iter()
-            .position(|(k,u)| u == &layer)
-            .expect("No layer for type")
-    }
-
-    pub fn max_layer(&self) -> usize {
-        self.layers.len()
-    }
-
-    pub fn max_tilemap_layer(&self) -> usize {
-        self.layers
-            .iter()
-            .rev()
-            .position(|(k,u)| u == &LayerUse::Tilemap)
-            .expect("No max tilemap layer")
-    }
 
     pub fn add(&mut self, area: Area) {
         self.areas.insert(area.location(),area);

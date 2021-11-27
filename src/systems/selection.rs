@@ -2,7 +2,8 @@ use bevy::input::mouse::{MouseButton};
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::{State,LayerUse};
+use crate::state::{State};
+use crate::generation::{LayerUse};
 use crate::systems::camera::Camera;
 use crate::math::MidRound;
 
@@ -188,7 +189,10 @@ fn selected_highlight_system(
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
-            let i = state.get_layer(LayerUse::Selection);
+            let i = state.layers
+                .get(&LayerUse::Selection)
+                .expect("Must have selection layer");
+                
             let m = state.textures.get("mark");
 
             if let Err(e) = tilemap.clear_tile(selection.selected,i) {

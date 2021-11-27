@@ -334,7 +334,7 @@ impl Generator {
         else {
             if j < 0. {
                 result.push(textures.get("snow"));
-            }
+            }   
             else {
                 if f > 75 {
                     result.push(textures.get("grass1"));
@@ -578,7 +578,7 @@ mod tests {
 
     #[test]
     fn generator_indices_30x30() {
-        let gen = Generator::new(0,30,30,Default::default(),0);
+        let gen = Generator::new(0,30,30,Default::default(),Default::default());
         assert_eq!(gen.index(-15,-15),0);
         assert_eq!(gen.index(0,-8),225);
         assert_eq!(gen.index(-11,-4),334);
@@ -589,7 +589,7 @@ mod tests {
 
     #[test]
     fn generator_indices_30x42() {
-        let gen = Generator::new(0,30,42,Default::default(),0);
+        let gen = Generator::new(0,30,42,Default::default(),Default::default());
         assert_eq!(gen.index(-15,-21),0);
         assert_eq!(gen.index(14,-21),29);
         assert_eq!(gen.index(14,20),1259);
@@ -601,7 +601,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_corners() {
-        let gen = Generator::new(0,30,30,Default::default(),0);
+        let gen = Generator::new(0,30,30,Default::default(),Default::default());
         let mut grp;
 
         // bottom-left corner
@@ -623,7 +623,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_quadrants() {
-        let gen = Generator::new(0,30,30,Default::default(),0);
+        let gen = Generator::new(0,30,30,Default::default(),Default::default());
         let mut grp;
 
         // top-left quadrant
@@ -645,7 +645,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_edges() {
-        let gen = Generator::new(0,30,30,Default::default(),0);
+        let gen = Generator::new(0,30,30,Default::default(),Default::default());
         let mut grp;
 
         // top-left quadrant top-edge
@@ -683,7 +683,7 @@ mod tests {
 
     #[test]
     fn generator_group_indices_30x30_negative() {
-        let gen = Generator::new(0,30,30,Default::default(),0);
+        let gen = Generator::new(0,30,30,Default::default(),Default::default());
         let mut grp;
 
         // top-left quadrant top-edge

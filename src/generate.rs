@@ -13,7 +13,7 @@ use bevy_tilemap::prelude::*;
 use crate::area::{Area};
 use crate::state::{State,Action};
 use crate::resources::Textures;
-use crate::generation::Generator;
+use crate::generation::{Generator,LayerUse};
 
 pub struct GeneratorPlugin;
 
@@ -84,7 +84,7 @@ fn generator_initialize_system(
                 .texture_atlas(atlas_handle)
                 .texture_dimensions(175, 200);
 
-            for (i,(kind,_)) in state.layers.iter().cloned().enumerate() {
+            for (i,(kind,_)) in state.layers.data().iter().cloned().enumerate() {
                 builder = builder.add_layer(
                     TilemapLayer { kind, ..Default::default() }, i );
             }
@@ -154,7 +154,9 @@ fn generator_configure_system(
 
             // generate map
             let areas = generate(&mut state,width,height);
-            let max = state.max_tilemap_layer();
+            let max = state.layers
+                .max(&LayerUse::Tilemap)
+                .expect("Must have a tilemap layer");
 
             // convert areas to bevy_tilemap tiles
             let tiles = areas
