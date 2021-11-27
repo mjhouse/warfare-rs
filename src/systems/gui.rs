@@ -5,11 +5,6 @@ use crate::state::{State,Action};
 
 pub struct GuiPlugin;
 
-#[derive(Default,Debug,Clone)]
-pub struct Gui {
-
-}
-
 // called once at startup to load assets
 fn gui_resources_system(
     _context: ResMut<EguiContext>, 
@@ -158,10 +153,4 @@ impl Plugin for GuiPlugin {
             .add_system(gui_configure_system.system())
             .add_system(gui_display_system.system());
 	}
-}
-
-pub fn setup(mut commands: Commands) {
-	commands
-		.spawn()
-		.insert(Gui::default());
 }

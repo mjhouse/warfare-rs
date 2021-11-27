@@ -12,8 +12,6 @@ const MAP_WIDTH: u32 = 30;
 
 mod math;
 mod area;
-mod generate;
-mod gui;
 mod error;
 
 mod resources;
@@ -58,11 +56,10 @@ fn main() {
         .add_plugin(systems::icon::IconPlugin)
 
         // set up gui plugin/system
-        .add_plugin(gui::GuiPlugin)
-        .add_startup_system(gui::setup.system())
+        .add_plugin(systems::gui::GuiPlugin)
 
         // set up generator plugin/system
-        .add_plugin(generate::GeneratorPlugin)
+        .add_plugin(systems::generate::GeneratorPlugin)
 
         .add_startup_system(setup.system())
         .run()
