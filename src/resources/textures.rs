@@ -40,6 +40,8 @@ impl Textures {
             "trees",
             "mark",
             "snow",
+            "unit",
+            "unit_lifted",
         ];
 
         self.textures = labels

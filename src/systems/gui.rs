@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 use crate::generation::{Biome,Soil};
 use crate::state::{State,Action};
+use crate::systems::selection::Selection;
 
 pub struct GuiPlugin;
 
@@ -52,9 +53,14 @@ fn gui_configure_system(
 // called repeatedly to update ui
 fn gui_display_system(
     mut state: ResMut<State>,
+    windows: Res<Windows>,
+    mut query: Query<&mut Selection>,
     context: ResMut<EguiContext>,
     _assets: Res<AssetServer>,
 ) {
+    let window = windows.get_primary().unwrap();
+    let mut selection = query.single_mut().expect("Need selection");
+
     egui::SidePanel::left("side_panel")
         .default_width(200.0)
         .show(context.ctx(), |ui| {
@@ -110,8 +116,12 @@ fn gui_display_system(
                     state.events.send(Action::UpdateTerrain);
                 }
 
-                ui.label(format!("{}",state.calendar));
+                if ui.button("Place Unit").clicked() {
+                    state.events.send(Action::PlaceUnit);
+                }
             });
+
+            ui.label(format!("{}",state.calendar));
 
             ui.separator();
             ui.heading("Selection");
@@ -142,6 +152,12 @@ fn gui_display_system(
             ui.monospace("Rocks:       6");
             ui.monospace("Water:       7");
 
+            if let Some(p) = window.cursor_position() {
+                selection.hovering = p.x > ui.max_rect().max.x;
+            }
+            else {
+                selection.hovering = false;
+            }
         });
 }
 

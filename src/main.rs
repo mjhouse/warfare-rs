@@ -49,18 +49,12 @@ fn main() {
         .add_plugin(systems::selection::SelectionPlugin)
         .add_startup_system(systems::selection::setup.system())
 
-        // set up overlay plugin/system
-        .add_plugin(systems::overlay::OverlayPlugin)
+        .add_plugin(systems::overlay::OverlayPlugin)    // set up overlay plugin
+        .add_plugin(systems::icon::IconPlugin)          // set up window icon plugin
+        .add_plugin(systems::gui::GuiPlugin)            // set up gui plugin
+        .add_plugin(systems::generate::GeneratorPlugin) // set up generator plugin
+        .add_plugin(systems::control::ControlPlugin)    // add unit control/placement plugin
         
-        // set up window icon plugin
-        .add_plugin(systems::icon::IconPlugin)
-
-        // set up gui plugin/system
-        .add_plugin(systems::gui::GuiPlugin)
-
-        // set up generator plugin/system
-        .add_plugin(systems::generate::GeneratorPlugin)
-
         .add_startup_system(setup.system())
         .run()
 }

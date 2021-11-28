@@ -58,7 +58,11 @@ pub struct State {
     /// events for systems
     pub events: Events,
 
+    /// in-game date and turn count
     pub calendar: Calendar,
+
+    /// all units on the board
+    pub units: Vec<Location>,
 }
 
 impl Default for State {
@@ -76,6 +80,7 @@ impl Default for State {
             loaded: Default::default(),
             events: Default::default(),
             calendar: Default::default(),
+            units: Default::default(),
         }
     }
 
@@ -91,6 +96,10 @@ impl State {
         for area in areas.into_iter() {
             self.add(area);
         }
+    }
+
+    pub fn has_unit(&self, location: &Location) -> bool {
+        self.units.contains(location)
     }
 
     pub fn get_texture(&self, loc: &Location) -> usize {

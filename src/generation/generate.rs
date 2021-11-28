@@ -611,8 +611,8 @@ impl Generator {
         let m = (self.moisture(x,y)  as f32 / 100.).powf(8.0);
         let r = (self.rockiness(x,y) as f32 / 100.).powf(2.0);
 
-        let f1 = m * 85.;
-        let f2 = r * 90.;
+        let f1 = m * 85.; // <100% magic number
+        let f2 = r * 90.; // <100% magic number
 
         let v = f1.max(f2).round();
         (v as u8).max(0).min(100)

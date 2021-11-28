@@ -5,7 +5,8 @@ use std::collections::HashSet;
 pub enum Action {
     UpdateTerrain,
     UpdateOverlay,
-    LoadTextures,
+    PlaceUnit,
+    SelectionChanged,
 }
 
 #[derive(Default,Clone)]

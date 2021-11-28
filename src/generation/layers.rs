@@ -5,6 +5,7 @@ pub enum LayerUse {
     Tilemap,
     Selection,
     Overlay,
+    Units,
 }
 
 #[derive(Clone)]
@@ -20,6 +21,7 @@ impl Default for Layers {
                 (LayerKind::Dense,  LayerUse::Tilemap),
                 (LayerKind::Dense,  LayerUse::Tilemap),
                 (LayerKind::Dense,  LayerUse::Overlay),
+                (LayerKind::Sparse, LayerUse::Units),
                 (LayerKind::Sparse, LayerUse::Selection),
             ],
         }

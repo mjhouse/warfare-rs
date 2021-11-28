@@ -2,7 +2,7 @@ use bevy::input::mouse::{MouseButton};
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::{State};
+use crate::state::{State,Action};
 use crate::generation::{LayerUse};
 use crate::systems::camera::Camera;
 use crate::math::MidRound;
@@ -12,10 +12,19 @@ pub struct SelectionPlugin;
 pub struct Selection {
     /// the position of the pointer
     pub position: Vec2,
+    
     /// the position of the hovered tile
     pub hovered: (i32,i32),
+    
+    /// false if pointer is over ui
+    pub hovering: bool,
+
     /// the position of the selected tile
     pub selected: (i32,i32),
+    
+    /// the position of the active unit
+    pub unit: Option<(i32,i32)>,
+
     /// the button that triggers selection
 	pub button: MouseButton,
 }
@@ -31,7 +40,9 @@ impl Default for Selection {
 		Self {
             position: Vec2::ZERO,
             hovered: (0,0),
+            hovering: false,
             selected: (0,0),
+            unit: None,
             button: MouseButton::Left,
 		}
 	}
@@ -120,6 +131,10 @@ fn selected_position_system(
     let window = windows.get_primary().unwrap();
     let mut selection = query.single_mut().expect("Need selection");
 
+    if !selection.hovering {
+        return;
+    }
+
     if let Some(position) = window.cursor_position() {
         let size = Vec2::new(window.width() as f32, window.height() as f32);
 
@@ -154,6 +169,10 @@ fn selected_hovered_system(
     let tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
 
+    if !selection.hovering {
+        return;
+    }
+
     if window.cursor_position().is_some() {
         let tile_width = tilemap.tile_width() as i32;
         let tile_height = tilemap.tile_height() as i32;
@@ -165,9 +184,6 @@ fn selected_hovered_system(
             selection.position.x,
             selection.position.y
         );
-    }
-    else {
-
     }
 }
 
@@ -185,6 +201,10 @@ fn selected_highlight_system(
     let window = windows.get_primary().unwrap();
     let mut selection = sel_query.single_mut().expect("Need selection");
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
+
+    if !selection.hovering {
+        return;
+    }
 
     // move the cursor shape to the cursor
     if window.cursor_position().is_some() {
@@ -214,6 +234,20 @@ fn selected_highlight_system(
                     log::warn!("{:?}",e);
                 }
 
+                state.events.send(Action::SelectionChanged);
+            }
+        }
+    }
+
+    if window.cursor_position().is_some() {
+        if inputs.pressed(selection.button) {
+            if state.has_unit(&selection.selected){
+                selection.unit = Some(selection.selected);
+            }
+        }
+        else {
+            if let Some(unit) = selection.unit {
+                selection.unit = None;
             }
         }
     }

@@ -5,3 +5,4 @@ pub mod selection;
 pub mod overlay;
 pub mod icon;
 pub mod gui;
+pub mod control;
