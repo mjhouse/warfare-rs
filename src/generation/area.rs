@@ -1,11 +1,8 @@
-use std::sync::atomic::{AtomicUsize,Ordering};
 use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
 
-use crate::generation::{Soil,Biome,Generator};
+use crate::generation::{Soil,Biome,id};
 use std::fmt::{Display,Formatter,Result,Debug};
-
-static ID: AtomicUsize = AtomicUsize::new(0);
 
 pub type Location = (i32,i32);
 
@@ -77,7 +74,7 @@ pub struct Area {
 impl Area {
     pub fn create() -> Self {
         Self {
-            id: ID.fetch_add(1, Ordering::SeqCst),
+            id: id::get(),
             ..Default::default()
         }
     }

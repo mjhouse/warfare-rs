@@ -11,7 +11,6 @@ const MAP_HEIGHT: u32 = 30;
 const MAP_WIDTH: u32 = 30;
 
 mod math;
-mod area;
 mod error;
 
 mod resources;

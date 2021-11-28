@@ -242,7 +242,7 @@ fn generate_moisture(width: i32, height: i32, initial: u8, elevation: &Vec<f32>)
 
 mod gen {
 
-    use crate::area::bounds;
+    use crate::generation::bounds;
 
     #[derive(Default,Debug,Clone)]
     pub struct Context {

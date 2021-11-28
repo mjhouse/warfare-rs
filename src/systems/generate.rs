@@ -10,10 +10,9 @@ use bevy::{
 
 use bevy_tilemap::prelude::*;
 
-use crate::area::{Area};
 use crate::state::{State,Action};
 use crate::resources::Textures;
-use crate::generation::{Generator,LayerUse};
+use crate::generation::{Generator,LayerUse,Area};
 
 pub struct GeneratorPlugin;
 

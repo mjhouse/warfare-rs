@@ -5,12 +5,16 @@ use bevy::asset::AssetServer;
 use bevy_tilemap::point::Point3;
 use bevy_tilemap::chunk::LayerKind;
 
-use crate::area::{Location,Area,Attribute,bounds};
-use crate::generation::{Soil};
-
-use crate::generation::Factors;
-use crate::generation::Generator;
-use crate::generation::Layers;
+use crate::generation::{
+    bounds,
+    Location,
+    Area,
+    Attribute,
+    Soil,
+    Factors,
+    Generator,
+    Layers,
+};
 
 use crate::resources::Spectrum;
 use crate::resources::Textures;

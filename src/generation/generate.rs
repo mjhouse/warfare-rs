@@ -12,7 +12,7 @@ use crate::generation::{
 
 use crate::state::{Calendar,Season};
 use crate::resources::Textures;
-use crate::area::bounds;
+use crate::generation::bounds;
 
 #[allow(dead_code)]
 #[derive(Default,Clone)]
