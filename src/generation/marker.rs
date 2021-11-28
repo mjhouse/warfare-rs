@@ -2,10 +2,10 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::Color;
 
 use crate::generation::id;
-use crate::state::traits::{Textured,Positioned,Point};
+use crate::state::traits::{Textured,Positioned,Point,Tiled};
 
 #[derive(Clone)]
-pub struct Unit {
+pub struct Marker {
     /// globally unique id
     id: usize,
 
@@ -19,7 +19,7 @@ pub struct Unit {
     position: (i32,i32),
 }
 
-impl Unit {
+impl Marker {
 
     pub fn new(layer: usize, texture: usize, position: (i32,i32)) -> Self {
         Self {
@@ -30,13 +30,27 @@ impl Unit {
         }
     }
 
+    pub fn place(&self, map: &mut Tilemap) {
+        let mut tile = self.as_tile();
+
+        // clear the current tile if it exists
+        map.clear_tile(
+            tile.point,
+            tile.sprite_order);
+
+        // if tile could not be inserted log err
+        if let Err(e) = map.insert_tile(tile) {
+            log::warn!("{:?}",e);
+        }
+    }
+
 }
 
-impl Default for Unit {
+impl Default for Marker {
     fn default() -> Self {
         Self::new(0,0,(0,0))
     }
 }
 
-crate::impl_positioned!(Unit);
-crate::impl_textured!(Unit);
+crate::impl_positioned!(Marker);
+crate::impl_textured!(Marker);

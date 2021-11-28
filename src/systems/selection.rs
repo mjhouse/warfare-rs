@@ -2,7 +2,7 @@ use bevy::input::mouse::{MouseButton};
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
-use crate::state::{State,Action};
+use crate::state::{State,Action,traits::Moveable};
 use crate::generation::{LayerUse};
 use crate::systems::camera::Camera;
 use crate::math::MidRound;
@@ -200,45 +200,25 @@ fn selected_highlight_system(
 
     let window = windows.get_primary().unwrap();
     let mut selection = sel_query.single_mut().expect("Need selection");
-    let mut tilemap = map_query.single_mut().expect("Need tilemap");
+    let mut map = map_query.single_mut().expect("Need tilemap");
 
     if !selection.hovering {
         return;
     }
 
-    // move the cursor shape to the cursor
+    // update the selected tile and move the marker
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) && !selection.on_selected() {
-            let i = state.layers
-                .get(&LayerUse::Selection)
-                .expect("Must have selection layer");
-                
-            let m = state.textures.get("mark");
-
-            if let Err(e) = tilemap.clear_tile(selection.selected,i) {
-                log::warn!("{:?}",e);
-            }
-
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-
-                let result = tilemap.insert_tile(Tile {
-                    point: selection.selected,
-                    sprite_order: i,
-                    sprite_index: m,
-                    tint: Color::WHITE,
-                });
-
-                if let Err(e) = result {
-                    log::warn!("{:?}",e);
-                }
-
+                state.marker.moved(&mut map,selection.selected);
                 state.events.send(Action::SelectionChanged);
             }
         }
     }
 
+    // if player is dragging a selected unit, update it
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) {
             if state.has_unit(&selection.selected){

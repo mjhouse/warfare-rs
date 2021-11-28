@@ -3,8 +3,8 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::systems::selection::Selection;
-use crate::generation::LayerUse;
-use crate::state::{State,Action};
+use crate::generation::{LayerUse,Unit};
+use crate::state::{State,Action,traits::Moveable};
 
 pub struct ControlPlugin;
 
@@ -41,7 +41,7 @@ fn control_place_system(
             }
 
             // add unit to state
-            state.units.push(selection.selected.clone());
+            state.units.push(Unit::new(i,m,selection.selected.clone()));
         }
 
         state.events.clear(Action::PlaceUnit);
@@ -68,29 +68,15 @@ fn control_movement_system(
     let layer = state.layers.get(&LayerUse::Units).expect("Need layer");
     let index = state.textures.get("unit");
 
-    if let Some(unit) = selection.unit {
-        if unit != selection.selected {
-            if state.areas.get(&selection.selected).is_some() {
-                // remove old unit token from map
-                tilemap.clear_tile(unit,layer);
-                
-                // add new unit token to map
-                let result = tilemap.insert_tile(Tile {
-                    point: selection.selected.clone(),
-                    sprite_order: layer,
-                    sprite_index: index,
-                    tint: Color::WHITE,
-                });
-    
-                if let Err(e) = result {
-                    log::warn!("{:?}",e);
+    if let Some(old_point) = selection.unit {
+        let new_point = selection.selected.clone();
+
+        if old_point != new_point {
+            if state.areas.get(&new_point).is_some() {
+                if let Some(unit) = state.find_unit(&old_point) {
+                    unit.moved(&mut tilemap, new_point);
+                    selection.unit = Some(new_point);
                 }
-    
-                // update positions in state and selection
-                state.units.retain(|&p| p != unit);
-                state.units.push(selection.selected.clone());
-                selection.unit = Some(selection.selected);
-                
             }
         }
     }

@@ -4,6 +4,8 @@ mod weather;
 mod factors;
 mod terrain;
 mod generate;
+
+mod marker;
 mod unit;
 mod area;
 
@@ -38,4 +40,8 @@ pub use area::{
 
 pub use unit::{
     Unit,
+};
+
+pub use marker::{
+    Marker,
 };

@@ -14,6 +14,8 @@ use crate::generation::{
     Factors,
     Generator,
     Layers,
+    Unit,
+    Marker,
 };
 
 use crate::resources::Spectrum;
@@ -21,6 +23,8 @@ use crate::resources::Textures;
 
 use crate::state::{Events,Calendar};
 use crate::error::{Error,Result};
+
+use crate::state::traits::{Moveable,Positioned};
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -66,7 +70,9 @@ pub struct State {
     pub calendar: Calendar,
 
     /// all units on the board
-    pub units: Vec<Location>,
+    pub units: Vec<Unit>,
+
+    pub marker: Marker,
 }
 
 impl Default for State {
@@ -85,6 +91,7 @@ impl Default for State {
             events: Default::default(),
             calendar: Default::default(),
             units: Default::default(),
+            marker: Default::default(),
         }
     }
 
@@ -103,7 +110,21 @@ impl State {
     }
 
     pub fn has_unit(&self, location: &Location) -> bool {
-        self.units.contains(location)
+        for unit in self.units.iter() {
+            if unit.get_position() == *location {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn find_unit(&mut self, location: &Location) -> Option<&mut Unit> {
+        for unit in self.units.iter_mut() {
+            if unit.get_position() == *location {
+                return Some(unit);
+            }
+        }
+        None
     }
 
     pub fn get_texture(&self, loc: &Location) -> usize {

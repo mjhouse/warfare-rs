@@ -10,7 +10,7 @@ use bevy::{
 
 use bevy_tilemap::prelude::*;
 
-use crate::state::{State,Action};
+use crate::state::{State,Action,traits::{Textured,Positioned}};
 use crate::resources::Textures;
 use crate::generation::{Generator,LayerUse,Area};
 
@@ -187,6 +187,18 @@ fn generator_configure_system(
             // update overlay
             state.events.send(Action::UpdateOverlay);
             state.events.clear(Action::UpdateTerrain);
+
+            // update selection marker
+            let t = state.textures
+                .get("marker");
+
+            let l = state.layers
+                .get(&LayerUse::Selection)
+                .expect("Must have selection layer");
+
+            state.marker.set_texture(t);
+            state.marker.set_layer(l);
+            state.marker.place(&mut map);
         }
     }
 }

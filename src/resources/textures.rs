@@ -38,7 +38,7 @@ impl Textures {
             "loam",
             "blank",
             "trees",
-            "mark",
+            "marker",
             "snow",
             "unit",
             "unit_lifted",
