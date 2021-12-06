@@ -13,6 +13,7 @@ use crate::generation::{
 use crate::state::{Calendar,Season};
 use crate::resources::Textures;
 use crate::generation::bounds;
+use crate::objects::Position;
 
 #[allow(dead_code)]
 #[derive(Default,Clone)]
@@ -181,7 +182,7 @@ impl Generator {
         gp.sort();
         gp
     }
-        
+
     fn get_noise( &self, f: &dyn NoiseFn<[f64; 2]>, x: f32, y: f32) -> f32 {
         f.get([
             x as f64 * std::f64::consts::PI,

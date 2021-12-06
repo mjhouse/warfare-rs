@@ -4,10 +4,23 @@ use bevy::sprite::TextureAtlas;
 use bevy::asset::AssetServer;
 use bevy_tilemap::point::Point3;
 use bevy_tilemap::chunk::LayerKind;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+use crate::objects::Location;
+use crate::resources::{Spectrum,Textures};
+use crate::error::{Error,Result};
+use crate::state::{
+    Events,
+    Calendar,
+    traits::{
+        Moveable,
+        Positioned,
+    },
+};
 
 use crate::generation::{
     bounds,
-    Location,
     Area,
     Attribute,
     Soil,
@@ -18,13 +31,13 @@ use crate::generation::{
     Marker,
 };
 
-use crate::resources::Spectrum;
-use crate::resources::Textures;
+static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
 
-use crate::state::{Events,Calendar};
-use crate::error::{Error,Result};
-
-use crate::state::traits::{Moveable,Positioned};
+#[derive(Debug,Clone)]
+pub struct Context {
+    pub height: u32,
+    pub width: u32,
+}
 
 #[derive(Default, Clone)]
 pub struct Terrain {
@@ -75,8 +88,16 @@ pub struct State {
     pub marker: Marker,
 }
 
-impl Default for State {
+impl Default for Context {
+    fn default() -> Self {
+        Self {
+            height: 30,
+            width: 30,
+        }
+    }
+}
 
+impl Default for State {
     fn default() -> Self {
         Self {
             textures: Default::default(),
@@ -94,10 +115,37 @@ impl Default for State {
             marker: Default::default(),
         }
     }
+}
 
+impl Context {
+    pub fn width() -> u32 {
+        CONTEXT.lock().expect("No context").width
+    }
+
+    pub fn height() -> u32 {
+        CONTEXT.lock().expect("No context").height
+    }
+
+    pub fn size() -> (i32,i32) {
+        ( Context::width()  as i32, 
+          Context::height() as i32)
+    }
 }
 
 impl State {
+
+    pub fn set_map_size(&self, width: u32, height: u32) {
+        let mut c = CONTEXT.lock().expect("Could not update context");
+        c.width = width;
+        c.height = height;
+    }
+
+    pub fn context(&self) -> Context {
+        CONTEXT
+            .lock()
+            .expect("No context")
+            .clone()
+    }
 
     pub fn add(&mut self, area: Area) {
         self.areas.insert(area.location(),area);

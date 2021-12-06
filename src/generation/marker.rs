@@ -1,4 +1,4 @@
-use bevy_tilemap::{Tilemap,Tile};
+use bevy_tilemap::{Tilemap};
 use bevy::prelude::Color;
 
 use crate::generation::id;

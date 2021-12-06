@@ -7,14 +7,13 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_tilemap::prelude::*;
 
-const MAP_HEIGHT: u32 = 30;
-const MAP_WIDTH: u32 = 30;
-
 mod math;
 mod error;
 
+mod behavior;
 mod resources;
 mod generation;
+mod objects;
 mod systems;
 mod state;
 
@@ -24,7 +23,7 @@ fn main() {
     pretty_env_logger::init();
 
     App::build()
-        // .insert_resource(Msaa { samples: 8 })
+        .insert_resource(Msaa { samples: 8 })
         .insert_resource(WindowDescriptor {
             title: "Warfare".to_string(),
             width: 1036.,
@@ -38,6 +37,7 @@ fn main() {
 
         .add_plugins(DefaultPlugins)
         .add_plugins(TilemapDefaultPlugins)
+
         .add_plugin(FrameTimeDiagnosticsPlugin)
 
         // set up camera plugin/system
@@ -58,7 +58,10 @@ fn main() {
         .run()
 }
 
+struct PathLine;
+
 fn setup(
+    mut commands: Commands,
     mut state: ResMut<State>,
     assets: Res<AssetServer>,
 ) {

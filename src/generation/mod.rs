@@ -33,7 +33,6 @@ pub use layers::{
 
 pub use area::{
     bounds,
-    Location,
     Area,
     Attribute,
 };

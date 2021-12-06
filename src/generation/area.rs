@@ -2,9 +2,9 @@ use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
 
 use crate::generation::{Soil,Biome,id};
-use std::fmt::{Display,Formatter,Result,Debug};
+use crate::objects::Location;
 
-pub type Location = (i32,i32);
+use std::fmt::{Display,Formatter,Result,Debug};
 
 pub mod bounds {
     pub const MAX_ELEV: f32 = 4000.0;
@@ -225,7 +225,7 @@ mod tests {
     fn test_id_generated() {
         // TODO: sometimes FAILS
         // make sure ID is reset to '0'
-        ID.store(0, Ordering::SeqCst);
+        crate::generation::id::set(0);
 
         let a1 = Area::create();
         let a2 = Area::create();

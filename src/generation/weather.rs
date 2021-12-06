@@ -99,14 +99,14 @@ mod tests {
         for _ in 0..100 {
             use WeatherType::*;
 
-            match weather.current(0.) {
-                Clear => println!("Clear"),
-                Cloudy => println!("Cloudy"),
-                Storm => println!("Storm"),
-                Snowstorm => println!("Snowstorm"),
-                Rain => println!("Rain"),
-                Snow => println!("Snow"),
-            };
+            // match weather.current(0.) {
+            //     Clear => println!("Clear"),
+            //     Cloudy => println!("Cloudy"),
+            //     Storm => println!("Storm"),
+            //     Snowstorm => println!("Snowstorm"),
+            //     Rain => println!("Rain"),
+            //     Snow => println!("Snow"),
+            // };
 
             weather.update();
         }

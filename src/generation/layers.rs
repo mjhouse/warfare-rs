@@ -77,7 +77,7 @@ mod tests {
         assert_eq!(layers.nth(1,&LayerUse::Tilemap),Some(1));
         assert_eq!(layers.nth(2,&LayerUse::Tilemap),Some(2));
         assert_eq!(layers.nth(0,&LayerUse::Overlay),Some(3));
-        assert_eq!(layers.nth(0,&LayerUse::Selection),Some(4));
+        assert_eq!(layers.nth(0,&LayerUse::Selection),Some(5));
 
         // negative cases
         assert_eq!(layers.nth(1,&LayerUse::Selection),None);
@@ -92,7 +92,7 @@ mod tests {
 
         assert_eq!(layers.max(&LayerUse::Tilemap),Some(2));
         assert_eq!(layers.max(&LayerUse::Overlay),Some(3));
-        assert_eq!(layers.max(&LayerUse::Selection),Some(4));
+        assert_eq!(layers.max(&LayerUse::Selection),Some(5));
     }
 
 }

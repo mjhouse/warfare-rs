@@ -78,10 +78,14 @@ fn generator_initialize_system(
             let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
             let atlas_handle = texture_atlases.add(texture_atlas);
     
+            let context = state.context();
+            let width = context.width;
+            let height = context.height;
+
             let mut builder = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(crate::MAP_WIDTH, crate::MAP_HEIGHT, 1)
+                .chunk_dimensions(width,height, 1)
                 .texture_atlas(atlas_handle)
                 .texture_dimensions(175, 200);
 
