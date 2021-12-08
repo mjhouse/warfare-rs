@@ -8,6 +8,9 @@ use crate::state::{State,Action,traits::Moveable};
 
 pub struct ControlPlugin;
 
+use crate::objects::Point;
+use crate::behavior::Pathfinder;
+
 fn control_place_system(
     mut state: ResMut<State>,
     mut map_query: Query<&mut Tilemap>,
@@ -77,6 +80,23 @@ fn control_movement_system(
                     unit.moved(&mut tilemap, new_point);
                     selection.unit = Some(new_point);
                 }
+
+                if let Some(start) = selection.start {
+                    if let Some(current) = selection.unit {
+                        let map = state.impedance_map();
+
+                        let finder = Pathfinder::new(
+                            map, 
+                            start.into(), 
+                            current.into());
+
+                        let path = finder.find();
+                        dbg!(path);
+
+
+                    }
+                }
+
             }
         }
     }

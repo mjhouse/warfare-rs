@@ -50,12 +50,30 @@ impl System2D for Offset {}
 impl System2D for Axial {}
 impl System3D for Cubic {}
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Copy,Clone,PartialEq,Eq,Hash)]
 pub struct Point<T: System = Offset> {
-    x: i32,
-    y: i32,
-    z: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
     phantom: PhantomData<T>,
+}
+
+impl fmt::Debug for Point<Offset> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Point({},{})", self.x,self.y)
+    }
+}
+
+impl fmt::Debug for Point<Axial> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Point({},{})", self.x,self.y)
+    }
+}
+
+impl fmt::Debug for Point<Cubic> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Point({},{},{})", self.x,self.y,self.z)
+    }
 }
 
 impl<T: System + System2D> From<&Point<T>> for (i32,i32) {
@@ -117,8 +135,10 @@ impl<T: System + System3D> From<(f32,f32,f32)> for Point<T> {
 // &Offset => Axial
 impl From<&Point<Offset>> for Point<Axial>{
     fn from(p: &Point<Offset>) -> Self {
-        let (x,y): (f32,f32) = p.into();     // unpack values
-        ( x, y - (x / 2.).floor()).into()    // convert to axial
+        let (x,y): (f32,f32) = p.into();   // unpack values
+        let q = x - (y - (y as i32 & 1) as f32) / 2.;
+        let r = y;
+        (q,r).into()
     }
 }
 
@@ -142,8 +162,10 @@ impl From<Point<Offset>> for Point<Cubic>{
 // &Axial => Offset
 impl From<&Point<Axial>> for Point<Offset>{
     fn from(p: &Point<Axial>) -> Self {
-        let (x,y): (f32,f32) = p.into();     // unpack values
-        ( x, y + (x / 2.).floor()).into()    // convert to offset
+        let (q,r): (f32,f32) = p.into();     // unpack values
+        let x = q + (r - (r as i32 & 1) as f32) / 2.;
+        let y = r;
+        (x,y).into()
     }
 }
 
@@ -229,74 +251,29 @@ impl Point<Offset> {
     }
 
     pub fn neighbors(&self) -> Vec<Point<Offset>> {
-        let (w,h) = Context::size();
-
-        let x = self.x;
-        let y = self.y;
-        
-        let mut result = vec![];
-        
-        // early return if given point is out of bounds
-        if x >= (w/2) || 
-           x < -(w/2) || 
-           y >= (h/2) || 
-           y < -(h/2) 
-        {
-            return result;
-        }
-
-        // get indices from (x,y) coordinates
-        let p0 = Point::offset(x,y).to_index();         // center    
-        let mut p1 = Point::offset(x-1,y+1).to_index(); // top-left  
-        let mut p2 = Point::offset(x,y+1).to_index();   // top-right 
-        let mut p3 = Point::offset(x-1,y-1).to_index(); // bot-left  
-        let mut p4 = Point::offset(x,y-1).to_index();   // bot-right 
-        let p5 = Point::offset(x-1,y).to_index();       // mid-left  
-        let p6 = Point::offset(x+1,y).to_index();       // mid-right 
-
-        // expected rows
-        let r0 = p0 / w + 1;
-        let r1 = p0 / w;
-        let r2 = p0 / w - 1;
-
-        // alternating rows shift
-        // right (hex layout)
-        if r1 % 2 == 0 {
-            p1 += 1;
-            p2 += 1;
-            p3 += 1;
-            p4 += 1;
-        }
-
-        // actual rows
-        let k0 = p1 / w;
-        let k1 = p2 / w;
-        let k2 = p3 / w;
-        let k3 = p4 / w;
-        let k4 = p5 / w;
-        let k5 = p6 / w;
-
-        // only include indices for points that are in 
-        // the expected rows and are in-bounds
-        let c1 = r0 == k0 && p1 >= 0 && p1 < (w*h);
-        let c2 = r0 == k1 && p2 >= 0 && p2 < (w*h);
-        let c3 = r2 == k2 && p3 >= 0 && p3 < (w*h);
-        let c4 = r2 == k3 && p4 >= 0 && p4 < (w*h);
-        let c5 = r1 == k4 && p5 >= 0 && p5 < (w*h);
-        let c6 = r1 == k5 && p6 >= 0 && p6 < (w*h);
-
-        if c1 { result.push(Point::index(p1)); } // top-left
-        if c2 { result.push(Point::index(p2)); } // top-right
-        if c3 { result.push(Point::index(p3)); } // bot-left
-        if c4 { result.push(Point::index(p4)); } // bot-right
-        if c5 { result.push(Point::index(p5)); } // mid-left
-        if c6 { result.push(Point::index(p6)); } // mid-right
-
-        result
+        self.to_cubic()
+            .neighbors()
+            .into_iter()
+            .map(Self::from)
+            .collect()
     }
 
     pub fn distance<T: Into<Point<Offset>>>(&self, other: T) -> i32 {
-        self.as_cubic().distance(other.into())
+        self.as_cubic()
+            .distance(other.into())
+    }
+
+    pub fn bounds(&self) -> (Point<Offset>,Point<Offset>) {
+        let (w,h) = Context::size();
+        (Point::new(-w/2,-h/2),
+         Point::new(w/2,h/2))
+    }
+
+    pub fn in_bounds(&self) -> bool {
+        let (s,e) = self.bounds();
+        let (x,y) = self.integers();
+        s.x <= x && s.y <= y &&
+        e.x > x && e.y > y
     }
 }
 
@@ -315,15 +292,25 @@ impl Point<Axial> {
     pub fn as_cubic(&self) -> Point<Cubic> { self.into() }
 
     pub fn neighbors(&self) -> Vec<Point<Axial>> {
-        self.as_offset()
+        self.to_cubic()
             .neighbors()
             .into_iter()
-            .map(|v| Self::from(v))
+            .map(Self::from)
             .collect()
     }
 
     pub fn distance<T: Into<Point<Axial>>>(&self, other: T) -> i32 {
-        self.as_cubic().distance(other.into())
+        self.as_cubic()
+            .distance(other.into())
+    }
+
+    pub fn bounds(&self) -> (Point<Axial>,Point<Axial>) {
+        let (s,e) = self.as_offset().bounds();
+        (s.into(),e.into())
+    }
+
+    pub fn in_bounds(&self) -> bool {
+        self.to_offset().in_bounds()
     }
 }
 
@@ -341,21 +328,26 @@ impl Point<Cubic> {
     pub fn as_offset(&self) -> Point<Offset> { self.into() }
     pub fn as_axial(&self) -> Point<Axial> { self.into() }
 
-    // pub fn neighbors(&self) -> Vec<Point<Cubic>> {
-    //     self.as_offset()
-    //         .neighbors()
-    //         .into_iter()
-    //         .map(|v| Self::from(v))
-    //         .collect()
-    // }
-
-    /*
-        re-implement neighbors:
-            1. calculate max and min points in row
-            2. convert max and min points to cubic
-            3. verify that neighboring points are inside bounds
-            3. do not convert to index to calculate
-    */
+    pub fn neighbors(&self) -> Vec<Point<Cubic>> {
+        let (x,y,z) = self.integers();
+        let mut result = Vec::with_capacity(6);
+        if self.in_bounds() {
+            let p1 = Point::cubic(x-1,y+1,z+0);
+            let p2 = Point::cubic(x+0,y+1,z-1);
+            let p3 = Point::cubic(x+0,y-1,z+1);
+            let p4 = Point::cubic(x+1,y-1,z+0);
+            let p5 = Point::cubic(x-1,y+0,z+1);
+            let p6 = Point::cubic(x+1,y+0,z-1);
+    
+            if p1.in_bounds() { result.push(p1); }
+            if p2.in_bounds() { result.push(p2); }
+            if p3.in_bounds() { result.push(p3); }
+            if p4.in_bounds() { result.push(p4); }
+            if p5.in_bounds() { result.push(p5); }
+            if p6.in_bounds() { result.push(p6); }
+        }
+        result
+    }
 
     pub fn distance<T: Into<Point<Cubic>>>(&self, other: T) -> i32 {
         let (x1,y1,z1) = self.integers();
@@ -363,19 +355,16 @@ impl Point<Cubic> {
         ((x1 - x2).abs() + (y1 - y2).abs() + (z1 - z2).abs()) / 2
     }
 
+    pub fn bounds(&self) -> (Point<Cubic>,Point<Cubic>) {
+        let (s,e) = self.as_offset().bounds();
+        (s.into(),e.into())
+    }
+
+    pub fn in_bounds(&self) -> bool {
+        self.to_offset().in_bounds()
+    }
+
 }
-
-/*
-    IMPLEMENT Eq/PartialEq for offset/axial/cubic
-
-*/
-
-// impl<T: Into<Point<Cubic>>> PartialEq<T> for Point<Cubic> {
-//     fn eq(&self, other: &T) -> bool {
-//         let p = other.into();
-//         self.x == p.x && self.y == p.y && self.z == p.z
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -412,15 +401,52 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn neighbors_offset_compare_cubic_30x30() {
-    //     initialize!(30,30);
+    #[test]
+    fn offset_to_axial_conversion() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2).as_axial(),Point::axial(-3,2));
+        assert_eq!(Point::offset(-2,-2).as_axial(),Point::axial(-1,-2));
+        assert_eq!(Point::offset(2,-2).as_axial(),Point::axial(3,-2));
+    }
 
-    //     assert_eq!(
-    //         point!(0,0).neighbors(),
-    //         cubic!(0,0).neighbors())
- 
-    // }
+    #[test]
+    fn axial_to_offset_conversion() {
+        initialize!(30,30);
+        assert_eq!(Point::axial(-3,2).as_offset(),Point::offset(-2,2));
+        assert_eq!(Point::axial(-1,-2).as_offset(),Point::offset(-2,-2));
+        assert_eq!(Point::axial(3,-2).as_offset(),Point::offset(2,-2));
+    }
+
+    #[test]
+    fn offset_to_cubic_conversion() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2).as_cubic(),Point::cubic(-3,2,1));
+        assert_eq!(Point::offset(-2,-2).as_cubic(),Point::cubic(-1,-2,3));
+        assert_eq!(Point::offset(2,-2).as_cubic(),Point::cubic(3,-2,-1));
+    }
+
+    #[test]
+    fn cubic_to_offset_conversion() {
+        initialize!(30,30);
+        assert_eq!(Point::cubic(-3,2,1).as_offset(),Point::offset(-2,2));
+        assert_eq!(Point::cubic(-1,-2,3).as_offset(),Point::offset(-2,-2));
+        assert_eq!(Point::cubic(3,-2,-1).as_offset(),Point::offset(2,-2));
+    }
+
+    #[test]
+    fn neighbors_offset_compare_cubic_30x30() {
+        initialize!(30,30);
+
+        let n1 = point!(0,0)
+            .neighbors();
+        let n2 = cubic!(0,0)
+            .neighbors()
+            .into_iter()
+            .map(|p| p.to_offset())
+            .collect::<Vec<Point>>();
+
+        assert_eq!(n1,n2);
+    }
 
     #[test]
     fn offset_point_as_index_30x30() {

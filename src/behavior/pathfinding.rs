@@ -1021,7 +1021,11 @@ mod tests {
         let path = finder.find();
 
         assert_eq!(path.len(),4);
-        assert_eq!()
+
+        // Point(0,0),
+        // Point(1,0),
+        // Point(1,1),
+        // Point(2,2),    
 
         dbg!(path);
     }

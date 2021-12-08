@@ -7,6 +7,7 @@ use bevy_tilemap::chunk::LayerKind;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
+use crate::objects::Point;
 use crate::objects::Location;
 use crate::resources::{Spectrum,Textures};
 use crate::error::{Error,Result};
@@ -145,6 +146,13 @@ impl State {
             .lock()
             .expect("No context")
             .clone()
+    }
+
+    pub fn impedance_map(&self) -> HashMap<Point,f32> {
+        self.areas
+            .iter()
+            .map(|(l,a)| (Point::from(*l),a.impedance() as f32))
+            .collect()
     }
 
     pub fn add(&mut self, area: Area) {

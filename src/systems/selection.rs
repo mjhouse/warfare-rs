@@ -7,6 +7,9 @@ use crate::generation::{LayerUse};
 use crate::systems::camera::Camera;
 use crate::math::MidRound;
 
+use crate::objects::Point;
+use crate::behavior::Pathfinder;
+
 pub struct SelectionPlugin;
 
 pub struct Selection {
@@ -24,6 +27,11 @@ pub struct Selection {
     
     /// the position of the active unit
     pub unit: Option<(i32,i32)>,
+
+    pub start: Option<(i32,i32)>,
+
+    /// the path from the initial position
+    pub path: Vec<Point>,
 
     /// the button that triggers selection
 	pub button: MouseButton,
@@ -43,6 +51,8 @@ impl Default for Selection {
             hovering: false,
             selected: (0,0),
             unit: None,
+            start: None,
+            path: vec![],
             button: MouseButton::Left,
 		}
 	}
@@ -219,17 +229,22 @@ fn selected_highlight_system(
     }
 
     // if player is dragging a selected unit, update it
+    let mut clear = true;
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) {
             if state.has_unit(&selection.selected){
-                selection.unit = Some(selection.selected);
+                if selection.unit.is_none() {
+                    selection.unit = Some(selection.selected);
+                    selection.start = Some(selection.selected);
+                }
             }
+            clear = false;
         }
-        else {
-            if let Some(unit) = selection.unit {
-                selection.unit = None;
-            }
-        }
+    }
+
+    if clear {
+        selection.unit = None;
+        selection.start = None;
     }
 }
 
