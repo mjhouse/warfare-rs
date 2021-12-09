@@ -68,8 +68,15 @@ fn control_movement_system(
 
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
-    let layer = state.layers.get(&LayerUse::Units).expect("Need layer");
+    let layer = state.layers.max(&LayerUse::Selection).expect("Need selection layer");
     let index = state.textures.get("unit");
+    let blank = state.textures.get("blank");
+
+    let mut new_path: Vec<((i32,i32),usize)> = vec![];
+    let mut old_path: Vec<((i32,i32),usize)> = selection.path
+        .iter()
+        .map(|p| (p.integers(),layer))
+        .collect();
 
     if let Some(old_point) = selection.unit {
         let new_point = selection.selected.clone();
@@ -85,15 +92,40 @@ fn control_movement_system(
                     if let Some(current) = selection.unit {
                         let map = state.impedance_map();
 
+                        // construct a path finder
                         let finder = Pathfinder::new(
                             map, 
                             start.into(), 
                             current.into());
 
+                        // find the shortest path from start to current
                         let path = finder.find();
-                        dbg!(path);
+                        let n = path.len().saturating_sub(1);
 
+                        selection.path = path.clone();
 
+                        // update the new path for selection
+                        new_path = path
+                            .iter()
+                            .map(|p| (p.integers(),layer))
+                            .collect();
+                        
+                        // build the tiles to display
+                        let new_tiles: Vec<Tile<(i32,i32)>> = path
+                            .iter()
+                            .enumerate()
+                            .filter(|&(i, _)| i != n)
+                            .map(|(_, p)| Tile {
+                                point: p.integers(),
+                                sprite_order: layer,
+                                sprite_index: blank,
+                                tint: Color::rgba(1.,1.,1.,0.25),
+                            })
+                            .collect();
+
+                        // clear the old path and display the new path
+                        tilemap.clear_tiles(old_path.clone());
+                        tilemap.insert_tiles(new_tiles);
                     }
                 }
 
@@ -101,6 +133,11 @@ fn control_movement_system(
         }
     }
 
+    // if the path wasn't updated (no route or done moving)
+    // then clear the old path here.
+    // if new_path.is_empty() && !old_path.is_empty() {
+    //     tilemap.clear_tiles(old_path);
+    // }
 }
 
 impl Plugin for ControlPlugin {

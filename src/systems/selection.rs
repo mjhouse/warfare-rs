@@ -243,8 +243,20 @@ fn selected_highlight_system(
     }
 
     if clear {
-        selection.unit = None;
-        selection.start = None;
+        if let Some(_) = selection.unit {
+            if let Some(_) = selection.start {
+                if !selection.path.is_empty() {
+                    let layer = state.layers.max(&LayerUse::Selection).unwrap();
+                    let path: Vec<((i32,i32),usize)> = selection.path
+                        .iter()
+                        .map(|p| (p.integers(),layer))
+                        .collect();
+                    map.clear_tiles(path);
+                }
+                selection.start = None;
+            }
+            selection.unit = None;
+        }
     }
 }
 
