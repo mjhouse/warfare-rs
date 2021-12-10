@@ -72,72 +72,66 @@ fn control_movement_system(
     let index = state.textures.get("unit");
     let blank = state.textures.get("blank");
 
-    let mut new_path: Vec<((i32,i32),usize)> = vec![];
-    let mut old_path: Vec<((i32,i32),usize)> = selection.path
-        .iter()
-        .map(|p| (p.integers(),layer))
-        .collect();
-
     if let Some(old_point) = selection.unit {
         let new_point = selection.selected.clone();
 
         if old_point != new_point {
             if state.areas.get(&new_point).is_some() {
+                let impedance = state
+                    .impedance_map();
+                
+                let mut actions = state
+                    .find_unit(&old_point)
+                    .map(|u| u.actions)
+                    .unwrap_or(0) as i32;
+
+                let start: Point = selection.start.unwrap_or(old_point).into();
+                let end: Point = new_point.into();
+
+                let finder = Pathfinder::new(
+                    impedance, 
+                    start.clone(), 
+                    end.clone());
+
+                let path = finder
+                    .find_weighted()
+                    .into_iter()
+                    .filter(|(_,c)| {
+                        actions -= (*c) as i32;
+                        actions >= 0
+                    })
+                    .map(|(p,_)| p)
+                    .filter(|p| p != &end)
+                    .collect::<Vec<Point>>();
+
+                let points = selection.path
+                    .iter()
+                    .map(|p| (p.integers(),layer))
+                    .collect::<Vec<((i32,i32),usize)>>();
+
+                let tiles = path
+                    .iter()
+                    .map(|p| Tile {
+                        point: p.integers(),
+                        sprite_order: layer,
+                        sprite_index: blank,
+                        tint: Color::rgba(1.,1.,1.,0.25),
+                    })
+                    .collect::<Vec<Tile<(i32,i32)>>>();
+
+                tilemap.clear_tiles(points);
+                tilemap.insert_tiles(tiles);
+
+                selection.path = path;
+                selection.actions = actions;
+
                 if let Some(unit) = state.find_unit(&old_point) {
                     unit.moved(&mut tilemap, new_point);
                     selection.unit = Some(new_point);
                 }
-
-                if let Some(start) = selection.start {
-                    if let Some(current) = selection.unit {
-                        let map = state.impedance_map();
-
-                        // construct a path finder
-                        let finder = Pathfinder::new(
-                            map, 
-                            start.into(), 
-                            current.into());
-
-                        // find the shortest path from start to current
-                        let path = finder.find();
-                        let n = path.len().saturating_sub(1);
-
-                        selection.path = path.clone();
-
-                        // update the new path for selection
-                        new_path = path
-                            .iter()
-                            .map(|p| (p.integers(),layer))
-                            .collect();
-                        
-                        // build the tiles to display
-                        let new_tiles: Vec<Tile<(i32,i32)>> = path
-                            .iter()
-                            .enumerate()
-                            .filter(|&(i, _)| i != n)
-                            .map(|(_, p)| Tile {
-                                point: p.integers(),
-                                sprite_order: layer,
-                                sprite_index: blank,
-                                tint: Color::rgba(1.,1.,1.,0.25),
-                            })
-                            .collect();
-
-                        // clear the old path and display the new path
-                        tilemap.clear_tiles(old_path.clone());
-                        tilemap.insert_tiles(new_tiles);
-                    }
-                }
-
             }
         }
     }
-
-    // if the path wasn't updated (no route or done moving)
-    // then clear the old path here.
-    // if new_path.is_empty() && !old_path.is_empty() {
-    //     tilemap.clear_tiles(old_path);
-    // }
 }
 
 impl Plugin for ControlPlugin {

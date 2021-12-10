@@ -17,6 +17,9 @@ pub struct Unit {
 
     /// position of the unit
     position: (i32,i32),
+
+    /// how much unit can do
+    pub actions: u32,
 }
 
 impl Unit {
@@ -27,6 +30,7 @@ impl Unit {
             layer: layer,
             texture: texture,
             position: position,
+            actions: 100,
         }
     }
 

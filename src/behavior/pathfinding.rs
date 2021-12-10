@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::objects::{Point,Offset};
+use crate::state::Context;
 
 pub type Weight = f32;
 pub type Score = f32;
@@ -17,7 +18,15 @@ impl Pathfinder {
         Self { nodes, start, end }
     }
 
+    pub fn limit(&self) -> u32 {
+        let w = Context::width();
+        let h = Context::height();
+        w * h
+    }
+
     pub fn find(&self) -> Vec<Point> {
+        let max = self.limit();
+
         let mut weights: HashMap<Point,(Cost,Weight)> = self.nodes
             .iter()
             .map(|(p,c)| (*p, ( *c, p.distance(self.end) as f32 )) )
@@ -38,6 +47,7 @@ impl Pathfinder {
             self.start, w, Vec::<Point>::new(), 0.0,
         )];
 
+        let mut count = 0;
         while queue[0].0 != self.end {
             let (point,weight,path,previous) = queue.swap_remove(0);
             for node in point.neighbors().iter() {
@@ -83,11 +93,22 @@ impl Pathfinder {
             }
 
             queue.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+            // break when no path found
+            if count > max { break; }
+            count += 1;
         }
 
         let mut best = queue[0].2.clone();
         best.push(self.end);
         best
+    }
+
+    pub fn find_weighted(&self) -> Vec<(Point,Cost)> {
+        self.find()
+            .into_iter()
+            .map(|p| (p,self.nodes.get(&p).unwrap().clone()))
+            .collect()
     }
 
 }
@@ -1021,13 +1042,6 @@ mod tests {
         let path = finder.find();
 
         assert_eq!(path.len(),4);
-
-        // Point(0,0),
-        // Point(1,0),
-        // Point(1,1),
-        // Point(2,2),    
-
-        dbg!(path);
     }
 
 }

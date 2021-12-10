@@ -30,6 +30,8 @@ pub struct Selection {
 
     pub start: Option<(i32,i32)>,
 
+    pub actions: i32,
+
     /// the path from the initial position
     pub path: Vec<Point>,
 
@@ -52,6 +54,7 @@ impl Default for Selection {
             selected: (0,0),
             unit: None,
             start: None,
+            actions: 0,
             path: vec![],
             button: MouseButton::Left,
 		}
@@ -243,7 +246,7 @@ fn selected_highlight_system(
     }
 
     if clear {
-        if let Some(_) = selection.unit {
+        if let Some(point) = selection.unit {
             if let Some(_) = selection.start {
                 if !selection.path.is_empty() {
                     let layer = state.layers.max(&LayerUse::Selection).unwrap();
@@ -254,6 +257,13 @@ fn selected_highlight_system(
                     map.clear_tiles(path);
                 }
                 selection.start = None;
+            }
+            if let Some(unit) = state.find_unit(&point) {
+                if selection.actions > 0 {
+                    unit.actions = selection.actions as u32;
+                }
+                dbg!(unit.actions);
+                selection.actions = 0;
             }
             selection.unit = None;
         }
