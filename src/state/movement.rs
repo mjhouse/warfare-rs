@@ -1,7 +1,7 @@
-use crate::objects::Location;
+use crate::objects::Point;
 
 pub struct Movement {
-    start: Location,
-    end:   Location,
-    tiles: Vec<Location>
+    start: Point,
+    end:   Point,
+    tiles: Vec<Point>
 }

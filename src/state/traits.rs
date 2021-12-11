@@ -1,111 +1,79 @@
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::Color;
+use crate::objects::Point;
 
-pub type Point = (i32,i32);
+pub trait HasPosition {
+    fn position(&self) -> &Point;
 
-#[macro_export]
-macro_rules! impl_positioned {
-    ( $name:ident ) => {
-        impl Positioned for $name {
-            fn get_position(&self) -> Point { 
-                self.position.clone()
-            }
-        
-            fn set_position(&mut self, point: Point) {
-                self.position = point;
-            }
-        
-            fn get_layer(&self) -> usize {
-                self.layer.clone()
-            }
-        
-            fn set_layer(&mut self, layer: usize) {
-                self.layer = layer;
-            }
-        }
-    }
+    fn position_mut(&mut self) -> &mut Point;
 }
 
-#[macro_export]
-macro_rules! impl_textured {
-    ( $name:ident ) => {
-        impl Textured for $name {
-            fn get_texture(&self) -> usize {
-                self.texture.clone()
-            }
-        
-            fn set_texture(&mut self, texture: usize){
-                self.texture = texture;
-            }
-        }
-    }
+pub trait HasLayer {
+    fn layer(&self) -> &usize;
+
+    fn layer_mut(&mut self) -> &mut usize;
 }
 
-pub trait Positioned {
-    fn get_position(&self) -> Point;
+pub trait HasTexture {
+    fn texture(&self) -> &usize;
 
-    fn set_position(&mut self, point: Point);
-
-    fn get_layer(&self) -> usize;
-
-    fn set_layer(&mut self, layer: usize);
+    fn texture_mut(&mut self) -> &mut usize;
 }
 
-pub trait Textured {
-    fn get_texture(&self) -> usize;
+pub trait AsTile {
+    fn as_tile(&self) -> Tile<(i32,i32)>;
 
-    fn set_texture(&mut self, texture: usize);
-
-    // fn hide(&self, map: &mut Tilemap);
-
-    // fn show(&self, map: &mut Tilemap);
+    fn to_tile(self) -> Tile<(i32,i32)>;
 }
 
-pub trait Tiled {
-    fn as_tile(&self) -> Tile<Point>;
+pub trait CanMove {
+    fn moveto(&mut self, map: &mut Tilemap, point: Point); // TODO: return error type here
+
+    fn remove(&self, map: &mut Tilemap); // TODO: return error type here
+
+    fn insert(&self, map: &mut Tilemap); // TODO: return error type here
 }
 
-pub trait Moveable {
-    fn moved(&mut self, map: &mut Tilemap, point: Point);
-}
-
-impl<T> Tiled for T 
+impl<T> AsTile for T 
 where 
-    T: Positioned + Textured
+    T: HasPosition + HasLayer + HasTexture
 {
-    fn as_tile(&self) -> Tile<Point> {
+    fn as_tile(&self) -> Tile<(i32,i32)> {
         Tile {
-            point: self.get_position(),
-            sprite_order: self.get_layer(),
-            sprite_index: self.get_texture(),
+            point: self.position().integers(),
+            sprite_order: self.layer().clone(),
+            sprite_index: self.texture().clone(),
             tint: Color::WHITE,
         }
     }
+
+    fn to_tile(self) -> Tile<(i32,i32)> {
+        (&self).as_tile()
+    }
 }
 
-impl<T> Moveable for T 
+impl<T> CanMove for T 
 where 
-    T: Positioned + Tiled
+    T: HasPosition + HasLayer + AsTile
 {
-    fn moved(&mut self, map: &mut Tilemap, point: Point) {
-        let mut tile = self.as_tile();
+    fn moveto(&mut self, map: &mut Tilemap, point: Point) {
+        self.remove(map);
+        *self.position_mut() = point;
+        self.insert(map);
+    }
 
-        let p = tile.point;
-        let z = tile.sprite_order;
+    fn remove(&self, map: &mut Tilemap) {
+        let p = self.position().integers();
+        let z = self.layer().clone();
+        if let Err(e) = map.clear_tile(p,z) {
+            log::warn!("{:?}",e);
+        }
+    }
 
-        // update tile position in map
-        tile.point = point;
-
-        // if tile could not be inserted, exit
-        // without changing anything
+    fn insert(&self, map: &mut Tilemap) {
+        let tile = self.as_tile();
         if let Err(e) = map.insert_tile(tile) {
             log::warn!("{:?}",e);
-            return;
         }
-
-        // on success, remove the old texture from 
-        // the map and update the position.
-        map.clear_tile(p,z);
-        self.set_position(point);
     }
 }

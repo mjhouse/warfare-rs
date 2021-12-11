@@ -37,7 +37,7 @@ impl Layers {
         let mut i = 0;
         self.layers
             .iter()
-            .position(|(k,u)| {
+            .position(|(_,u)| {
                 let mut r = false;
                 if u == layer {
                     if i == n {
@@ -54,7 +54,7 @@ impl Layers {
     pub fn max(&self, layer: &LayerUse) -> Option<usize> {
         self.layers
             .iter()
-            .rposition(|(k,u)| u == layer)
+            .rposition(|(_,u)| u == layer)
     }
 
     pub fn data(&self) -> Vec<(LayerKind,LayerUse)> {

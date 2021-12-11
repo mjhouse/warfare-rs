@@ -1,27 +1,24 @@
-use bevy_tilemap::{Tilemap};
-use bevy::prelude::Color;
-
 use crate::generation::id;
-use crate::state::traits::{Textured,Positioned,Point,Tiled};
+use crate::state::traits::{HasPosition,HasLayer,HasTexture};
+use crate::objects::Point;
 
 #[derive(Clone)]
 pub struct Marker {
     /// globally unique id
     id: usize,
 
-    /// layer for this unit
+    /// layer for this marker
     layer: usize,
 
-    /// texture for this unit
+    /// texture for this marker
     texture: usize,
 
-    /// position of the unit
-    position: (i32,i32),
+    /// position of the marker
+    position: Point,
 }
 
 impl Marker {
-
-    pub fn new(layer: usize, texture: usize, position: (i32,i32)) -> Self {
+    pub fn new(layer: usize, texture: usize, position: Point) -> Self {
         Self {
             id: id::get(),
             layer: layer,
@@ -29,28 +26,28 @@ impl Marker {
             position: position,
         }
     }
-
-    pub fn place(&self, map: &mut Tilemap) {
-        let mut tile = self.as_tile();
-
-        // clear the current tile if it exists
-        map.clear_tile(
-            tile.point,
-            tile.sprite_order);
-
-        // if tile could not be inserted log err
-        if let Err(e) = map.insert_tile(tile) {
-            log::warn!("{:?}",e);
-        }
-    }
-
 }
 
 impl Default for Marker {
     fn default() -> Self {
-        Self::new(0,0,(0,0))
+        Self::new(0,0,(0,0).into())
     }
 }
 
-crate::impl_positioned!(Marker);
-crate::impl_textured!(Marker);
+impl HasPosition for Marker {
+    fn position(&self) -> &Point { &self.position }
+
+    fn position_mut(&mut self) -> &mut Point { &mut self.position }
+}
+
+impl HasLayer for Marker {
+    fn layer(&self) -> &usize { &self.layer }
+
+    fn layer_mut(&mut self) -> &mut usize { &mut self.layer }
+}
+
+impl HasTexture for Marker {
+    fn texture(&self) -> &usize { &self.texture }
+
+    fn texture_mut(&mut self) -> &mut usize { &mut self.texture }
+}

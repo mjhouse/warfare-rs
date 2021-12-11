@@ -128,3 +128,9 @@ Then build and run warfare:
 ```
 cargo run
 ```
+
+## Tests
+
+```
+cargo test -- --test-threads=1 --nocapture --show-output
+```

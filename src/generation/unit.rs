@@ -1,8 +1,6 @@
-use bevy_tilemap::{Tilemap,Tile};
-use bevy::prelude::Color;
-
 use crate::generation::id;
-use crate::state::traits::{Textured,Positioned,Point};
+use crate::state::traits::*;
+use crate::objects::Point;
 
 #[derive(Clone)]
 pub struct Unit {
@@ -16,7 +14,7 @@ pub struct Unit {
     texture: usize,
 
     /// position of the unit
-    position: (i32,i32),
+    position: Point,
 
     /// how much unit can do
     pub actions: u32,
@@ -24,7 +22,7 @@ pub struct Unit {
 
 impl Unit {
 
-    pub fn new(layer: usize, texture: usize, position: (i32,i32)) -> Self {
+    pub fn new(layer: usize, texture: usize, position: Point) -> Self {
         Self {
             id: id::get(),
             layer: layer,
@@ -38,9 +36,24 @@ impl Unit {
 
 impl Default for Unit {
     fn default() -> Self {
-        Self::new(0,0,(0,0))
+        Self::new(0,0,(0,0).into())
     }
 }
 
-crate::impl_positioned!(Unit);
-crate::impl_textured!(Unit);
+impl HasPosition for Unit {
+    fn position(&self) -> &Point { &self.position }
+
+    fn position_mut(&mut self) -> &mut Point { &mut self.position }
+}
+
+impl HasLayer for Unit {
+    fn layer(&self) -> &usize { &self.layer }
+
+    fn layer_mut(&mut self) -> &mut usize { &mut self.layer }
+}
+
+impl HasTexture for Unit {
+    fn texture(&self) -> &usize { &self.texture }
+
+    fn texture_mut(&mut self) -> &mut usize { &mut self.texture }
+}

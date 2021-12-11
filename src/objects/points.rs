@@ -1,9 +1,11 @@
 use std::fmt;
-
 use std::marker::PhantomData;
-use crate::state::Context;
 
-/// https://gamedevelopment.tutsplus.com/tutorials/introduction-to-axial-coordinates-for-hexagonal-tile-based-games--cms-28820
+use crate::state::Context;
+use crate::math::MidRound;
+
+// https://gamedevelopment.tutsplus.com/tutorials/introduction-to-axial-coordinates-for-hexagonal-tile-based-games--cms-28820
+// https://www.redblobgames.com/grids/hexagons/
 
 /// Map tile orientation (warfare uses Horizontal)
 #[derive(Debug,Clone,PartialEq,Eq)]
@@ -50,12 +52,69 @@ impl System2D for Offset {}
 impl System2D for Axial {}
 impl System3D for Cubic {}
 
-#[derive(Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Point<T: System = Offset> {
     pub x: i32,
     pub y: i32,
     pub z: i32,
     phantom: PhantomData<T>,
+}
+
+impl PartialEq<(i32,i32)> for Point<Offset> {
+    fn eq(&self, &(x,y): &(i32,i32)) -> bool {
+        self.x == x && 
+        self.y == y
+    }
+}
+
+impl PartialEq<Point<Axial>> for Point<Offset> {
+    fn eq(&self, p: &Point<Axial>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y
+    }
+}
+
+impl PartialEq<Point<Cubic>> for Point<Offset> {
+    fn eq(&self, p: &Point<Cubic>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y
+    }
+}
+
+impl PartialEq<Point<Offset>> for Point<Axial> {
+    fn eq(&self, p: &Point<Offset>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y
+    }
+}
+
+impl PartialEq<Point<Cubic>> for Point<Axial> {
+    fn eq(&self, p: &Point<Cubic>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y
+    }
+}
+
+impl PartialEq<Point<Offset>> for Point<Cubic> {
+    fn eq(&self, p: &Point<Offset>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y &&
+        self.z == o.z
+    }
+}
+
+impl PartialEq<Point<Axial>> for Point<Cubic> {
+    fn eq(&self, p: &Point<Axial>) -> bool {
+        let o: Self = p.into();
+        self.x == o.x && 
+        self.y == o.y &&
+        self.z == o.z
+    }
 }
 
 impl fmt::Debug for Point<Offset> {
@@ -250,6 +309,78 @@ impl Point<Offset> {
          (i / w) - (h / 2)).into()
     }
 
+    pub fn from_global(ox: f32, oy: f32) -> Point<Offset> {
+        let s = Context::tile_size();
+
+        let w = s.0 as f32;
+        let h = s.1 as f32;
+
+        let mut m;
+        let mut n;
+    
+        let mut x = ox;
+        let mut y = oy;
+    
+        let k = 0.75 * h;
+    
+        x -= w * 0.25;
+        y -= h * 0.25 + h * 0.125;
+    
+        if y > 0.0 {
+            y += k/2.0;
+        }
+        else if y < 0.0 {
+            y -= k/2.0;
+        }
+    
+        n = (y / k).mid() as i32;
+        let odd = n.abs() % 2 == 1;
+    
+        if x > 0.0 {
+            x += w/2.0;
+        }
+        else if x < 0.0 {
+            x -= w/2.0;
+        }
+    
+        if odd {
+            x -= w/2.0;
+        }
+    
+        m = (x / w).mid() as i32;
+    
+        let c = h*0.25;
+        let _g = c/(w*0.5);
+    
+        let ry = oy - (n as f32 * k);
+        let mut rx = ox + (w/4.0) - (m as f32 * w);
+    
+        if odd {
+            rx -= w/2.0;
+        }
+    
+        let c = h * 0.25;
+    
+        let slope = c / (w * 0.5);
+        let int1 = k - c;
+        let int2 = k + c;
+    
+        if ry > (slope * rx) + int1 {
+            n += 1;
+            if !odd {
+                m -= 1;
+            }
+        }
+        else if ry > (-slope * rx) + int2 {
+            n += 1;
+            if odd {
+                m += 1;
+            }
+        }
+    
+        (m,n).into()
+    }
+
     pub fn neighbors(&self) -> Vec<Point<Offset>> {
         self.to_cubic()
             .neighbors()
@@ -373,8 +504,12 @@ mod tests {
 
     macro_rules! initialize {
         ( $w:expr, $h:expr ) => { 
-            crate::state::State::default().set_map_size($w,$h) 
-        }
+            initialize!($w,$h,175,200);
+        };
+        ( $w:expr, $h:expr, $tw:expr, $th:expr ) => { 
+            crate::state::Context::set_size($w,$h);
+            crate::state::Context::set_tile_size($tw,$th);
+        };
     }
 
     macro_rules! index {
@@ -399,6 +534,32 @@ mod tests {
                 point!($x, $y) 
             ),*]
         }
+    }
+
+    #[test]
+    fn offset_to_offset_comparison() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2),Point::offset(-2,2));
+    }
+
+    #[test]
+    fn offset_to_axial_comparison() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2),Point::offset(-2,2).as_axial());
+        assert_eq!(Point::offset(-2,2).as_axial(),Point::offset(-2,2));
+    }
+
+    #[test]
+    fn offset_to_cubic_comparison() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2),Point::offset(-2,2).as_cubic());
+        assert_eq!(Point::offset(-2,2).as_cubic(),Point::offset(-2,2));
+    }
+
+    #[test]
+    fn offset_to_tuple_comparison() {
+        initialize!(30,30);
+        assert_eq!(Point::offset(-2,2),(-2,2));
     }
 
     #[test]

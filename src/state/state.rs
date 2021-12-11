@@ -1,30 +1,22 @@
 use std::collections::hash_map::HashMap;
-use bevy::asset::HandleUntyped;
-use bevy::sprite::TextureAtlas;
-use bevy::asset::AssetServer;
 use bevy_tilemap::point::Point3;
-use bevy_tilemap::chunk::LayerKind;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 use crate::objects::Point;
 use crate::objects::Location;
 use crate::resources::{Spectrum,Textures};
-use crate::error::{Error,Result};
+
 use crate::state::{
     Events,
     Calendar,
-    traits::{
-        Moveable,
-        Positioned,
-    },
+    traits::*,
 };
 
 use crate::generation::{
     bounds,
     Area,
     Attribute,
-    Soil,
     Factors,
     Generator,
     Layers,
@@ -36,8 +28,10 @@ static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default(
 
 #[derive(Debug,Clone)]
 pub struct Context {
-    pub height: u32,
     pub width: u32,
+    pub height: u32,
+    pub tile_width: u32,
+    pub tile_height: u32,
 }
 
 #[derive(Default, Clone)]
@@ -92,8 +86,10 @@ pub struct State {
 impl Default for Context {
     fn default() -> Self {
         Self {
-            height: 30,
             width: 30,
+            height: 30,
+            tile_width: 175,
+            tile_height: 200,
         }
     }
 }
@@ -118,35 +114,63 @@ impl Default for State {
     }
 }
 
+macro_rules! context {
+    () => { CONTEXT.lock().expect("No context") }
+}
+
 impl Context {
     pub fn width() -> u32 {
-        CONTEXT.lock().expect("No context").width
+        context!().width
     }
 
     pub fn height() -> u32 {
-        CONTEXT.lock().expect("No context").height
+        context!().height
+    }
+
+    pub fn tile_width() -> u32 {
+        context!().tile_width
+    }
+
+    pub fn tile_height() -> u32 {
+        context!().tile_height
     }
 
     pub fn size() -> (i32,i32) {
-        ( Context::width()  as i32, 
-          Context::height() as i32)
+        let c = context!();
+        ( c.width  as i32, 
+          c.height as i32)
+    }
+
+    pub fn tile_size() -> (i32,i32) {
+        let c = context!();
+        ( c.tile_width  as i32, 
+          c.tile_height as i32)
+    }
+
+    pub fn clone() -> Context {
+        context!().clone()
+    }
+
+    pub fn set_size(w: u32, h: u32) {
+        let mut c = context!();
+        c.width = w;
+        c.height = h;
+    }
+
+    pub fn set_tile_size(w: u32, h: u32) {
+        let mut c = context!();
+        c.tile_width = w;
+        c.tile_height = h;
+    }
+
+    pub fn init(w: u32, h: u32, tw: u32, th: u32) -> Context {
+        Self::set_size(w,h);
+        Self::set_tile_size(tw,th);
+        Self::clone()
     }
 }
 
 impl State {
-
-    pub fn set_map_size(&self, width: u32, height: u32) {
-        let mut c = CONTEXT.lock().expect("Could not update context");
-        c.width = width;
-        c.height = height;
-    }
-
-    pub fn context(&self) -> Context {
-        CONTEXT
-            .lock()
-            .expect("No context")
-            .clone()
-    }
 
     pub fn impedance_map(&self) -> HashMap<Point,f32> {
         self.areas
@@ -167,7 +191,7 @@ impl State {
 
     pub fn has_unit(&self, location: &Location) -> bool {
         for unit in self.units.iter() {
-            if unit.get_position() == *location {
+            if unit.position() == location {
                 return true;
             }
         }
@@ -176,7 +200,7 @@ impl State {
 
     pub fn find_unit(&mut self, location: &Location) -> Option<&mut Unit> {
         for unit in self.units.iter_mut() {
-            if unit.get_position() == *location {
+            if unit.position() == location {
                 return Some(unit);
             }
         }

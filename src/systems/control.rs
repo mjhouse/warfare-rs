@@ -1,10 +1,9 @@
-use bevy::input::mouse::MouseButton;
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::systems::selection::Selection;
 use crate::generation::{LayerUse,Unit};
-use crate::state::{State,Action,traits::Moveable};
+use crate::state::{State,Action,traits::*};
 
 pub struct ControlPlugin;
 
@@ -22,7 +21,7 @@ fn control_place_system(
 
     if state.events.receive(Action::PlaceUnit) && state.events.receive(Action::SelectionChanged) {
         let mut tilemap = map_query.single_mut().expect("Need tilemap");
-        let mut selection = sel_query.single_mut().expect("Need selection");
+        let selection = sel_query.single_mut().expect("Need selection");
         
         let i = state.layers
             .get(&LayerUse::Units)
@@ -44,7 +43,7 @@ fn control_place_system(
             }
 
             // add unit to state
-            state.units.push(Unit::new(i,m,selection.selected.clone()));
+            state.units.push(Unit::new(i,m,selection.selected.into()));
         }
 
         state.events.clear(Action::PlaceUnit);
@@ -69,7 +68,6 @@ fn control_movement_system(
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
     let layer = state.layers.max(&LayerUse::Selection).expect("Need selection layer");
-    let index = state.textures.get("unit");
     let blank = state.textures.get("blank");
 
     if let Some(old_point) = selection.unit {
@@ -119,14 +117,19 @@ fn control_movement_system(
                     })
                     .collect::<Vec<Tile<(i32,i32)>>>();
 
-                tilemap.clear_tiles(points);
-                tilemap.insert_tiles(tiles);
+                if let Err(e) = tilemap.clear_tiles(points) {
+                    log::warn!("{:?}",e);
+                }
+
+                if let Err(e) = tilemap.insert_tiles(tiles) {
+                    log::warn!("{:?}",e);
+                }
 
                 selection.path = path;
                 selection.actions = actions;
 
                 if let Some(unit) = state.find_unit(&old_point) {
-                    unit.moved(&mut tilemap, new_point);
+                    unit.moveto(&mut tilemap, new_point.into());
                     selection.unit = Some(new_point);
                 }
             }

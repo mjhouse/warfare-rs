@@ -2,16 +2,11 @@ use bevy::prelude::*;
 use bevy::{
     asset::LoadState,
     sprite::{TextureAtlas, TextureAtlasBuilder},
-    render::texture::{
-        SamplerDescriptor,
-        FilterMode,
-    },
 };
 
 use bevy_tilemap::prelude::*;
 
-use crate::state::{State,Action,traits::{Textured,Positioned}};
-use crate::resources::Textures;
+use crate::state::{State,Action,Context,traits::*};
 use crate::generation::{Generator,LayerUse,Area};
 
 pub struct GeneratorPlugin;
@@ -78,16 +73,18 @@ fn generator_initialize_system(
             let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
             let atlas_handle = texture_atlases.add(texture_atlas);
     
-            let context = state.context();
+            let context = Context::clone();
             let width = context.width;
             let height = context.height;
+            let tile_height = context.tile_height;
+            let tile_width = context.tile_width;
 
             let mut builder = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
                 .chunk_dimensions(width,height, 1)
                 .texture_atlas(atlas_handle)
-                .texture_dimensions(175, 200);
+                .texture_dimensions(tile_width,tile_height);
 
             for (i,(kind,_)) in state.layers.data().iter().cloned().enumerate() {
                 builder = builder.add_layer(
@@ -200,9 +197,10 @@ fn generator_configure_system(
                 .get(&LayerUse::Selection)
                 .expect("Must have selection layer");
 
-            state.marker.set_texture(t);
-            state.marker.set_layer(l);
-            state.marker.place(&mut map);
+            state.marker.remove(&mut map);
+            *state.marker.texture_mut() = t;
+            *state.marker.layer_mut() = l;
+            state.marker.insert(&mut map);
         }
     }
 }

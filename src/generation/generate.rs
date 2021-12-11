@@ -13,7 +13,6 @@ use crate::generation::{
 use crate::state::{Calendar,Season};
 use crate::resources::Textures;
 use crate::generation::bounds;
-use crate::objects::Position;
 
 #[allow(dead_code)]
 #[derive(Default,Clone)]
@@ -410,7 +409,7 @@ impl Generator {
         let v3 = 0.25 * n3;
 
         let mut v;
-        let mut f;
+        let f;
 
         f = factor / 100.0;
 
@@ -449,7 +448,7 @@ impl Generator {
 
         let mut f;
         let mut e;
-        let mut v;
+        let v;
 
         f = self.factors.temperature as f32;
         e = self.elevation(x,y);
@@ -476,9 +475,9 @@ impl Generator {
             _ => 0,
         } as u8;
 
-        let mut f;
+        let f;
         let mut e;
-        let mut v;
+        let v;
 
         f = self.factors.moisture as f32 / 50.;
         e = self.elevation(x,y);
@@ -526,7 +525,7 @@ impl Generator {
         let mut t;
         let mut m;
         let mut r;
-        let mut f;
+        let f;
 
         // get related and normalize
         t = self.temperature(x,y);

@@ -58,10 +58,8 @@ fn main() {
         .run()
 }
 
-struct PathLine;
-
 fn setup(
-    mut commands: Commands,
+    //mut commands: Commands,
     mut state: ResMut<State>,
     assets: Res<AssetServer>,
 ) {

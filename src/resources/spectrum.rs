@@ -51,9 +51,8 @@ impl Spectrum {
         let mut b = end.clone();
 
         // Hue interpolation
-        let mut h = 0.0;
+        let h;
         let mut d = b.h - a.h;
-
 
         if a.h > b.h {
             // swap b.h and a.h

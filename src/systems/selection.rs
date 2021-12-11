@@ -1,15 +1,13 @@
 use bevy::input::mouse::{MouseButton};
-use bevy_tilemap::{Tilemap,Tile};
+use bevy_tilemap::Tilemap;
 use bevy::prelude::*;
 
-use crate::state::{State,Action,traits::Moveable};
+use crate::state::{State,Action,traits::*};
 use crate::generation::{LayerUse};
 use crate::systems::camera::Camera;
 use crate::math::MidRound;
 
 use crate::objects::Point;
-use crate::behavior::Pathfinder;
-
 pub struct SelectionPlugin;
 
 pub struct Selection {
@@ -59,73 +57,6 @@ impl Default for Selection {
             button: MouseButton::Left,
 		}
 	}
-}
-
-fn to_tile_coords(w: f32, h: f32, ox: f32, oy: f32) -> (i32,i32) {
-    let mut m;
-    let mut n;
-
-    let mut x = ox;
-    let mut y = oy;
-
-    let k = 0.75 * h;
-
-    x -= w * 0.25;
-    y -= h * 0.25 + h * 0.125;
-
-    if y > 0.0 {
-        y += k/2.0;
-    }
-    else if y < 0.0 {
-        y -= k/2.0;
-    }
-
-    n = (y / k).mid() as i32;
-    let odd = n.abs() % 2 == 1;
-
-    if x > 0.0 {
-        x += w/2.0;
-    }
-    else if x < 0.0 {
-        x -= w/2.0;
-    }
-
-    if odd {
-        x -= w/2.0;
-    }
-
-    m = (x / w).mid() as i32;
-
-    let c = h*0.25;
-    let _g = c/(w*0.5);
-
-    let ry = oy - (n as f32 * k);
-    let mut rx = ox + (w/4.0) - (m as f32 * w);
-
-    if odd {
-        rx -= w/2.0;
-    }
-
-    let c = h * 0.25;
-
-    let slope = c / (w * 0.5);
-    let int1 = k - c;
-    let int2 = k + c;
-
-    if ry > (slope * rx) + int1 {
-        n += 1;
-        if !odd {
-            m -= 1;
-        }
-    }
-    else if ry > (-slope * rx) + int2 {
-        n += 1;
-        if odd {
-            m += 1;
-        }
-    }
-
-    (m,n)
 }
 
 /// Find the current position of the mouse cursor
@@ -187,16 +118,11 @@ fn selected_hovered_system(
     }
 
     if window.cursor_position().is_some() {
-        let tile_width = tilemap.tile_width() as i32;
-        let tile_height = tilemap.tile_height() as i32;
-
         // cache the position of the hovered tile
-        selection.hovered = to_tile_coords(
-            tile_width as f32,
-            tile_height as f32,
+        selection.hovered = Point::from_global(
             selection.position.x,
             selection.position.y
-        );
+        ).integers();
     }
 }
 
@@ -225,7 +151,7 @@ fn selected_highlight_system(
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-                state.marker.moved(&mut map,selection.selected);
+                state.marker.moveto(&mut map,selection.selected.into());
                 state.events.send(Action::SelectionChanged);
             }
         }
@@ -254,7 +180,9 @@ fn selected_highlight_system(
                         .iter()
                         .map(|p| (p.integers(),layer))
                         .collect();
-                    map.clear_tiles(path);
+                    if let Err(e) = map.clear_tiles(path) {
+                        log::warn!("{:?}",e);
+                    }
                 }
                 selection.start = None;
             }

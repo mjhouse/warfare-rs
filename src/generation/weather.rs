@@ -33,7 +33,6 @@ impl Weather {
 
     pub fn new() -> Self {
         use WeatherType::*;
-
         Self {
             current: Clear,
             states: vec![

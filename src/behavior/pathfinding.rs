@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::objects::{Point,Offset};
+use crate::objects::Point;
 use crate::state::Context;
 
 pub type Weight = f32;
@@ -27,12 +27,12 @@ impl Pathfinder {
     pub fn find(&self) -> Vec<Point> {
         let max = self.limit();
 
-        let mut weights: HashMap<Point,(Cost,Weight)> = self.nodes
+        let weights: HashMap<Point,(Cost,Weight)> = self.nodes
             .iter()
             .map(|(p,c)| (*p, ( *c, p.distance(self.end) as f32 )) )
             .collect();
 
-        let (c,w): (Cost,Weight) = weights
+        let (_,w): (Cost,Weight) = weights
             .get(&self.start)
             .expect("Starting point is not in map")
             .to_owned();
@@ -49,7 +49,7 @@ impl Pathfinder {
 
         let mut count = 0;
         while queue[0].0 != self.end {
-            let (point,weight,path,previous) = queue.swap_remove(0);
+            let (point,_,path,previous) = queue.swap_remove(0);
             for node in point.neighbors().iter() {
                 let (current,_) = weights
                     .get(&point)
@@ -119,8 +119,12 @@ mod tests {
 
     macro_rules! initialize {
         ( $w:expr, $h:expr ) => { 
-            crate::state::State::default().set_map_size($w,$h) 
-        }
+            initialize!($w,$h,175,200);
+        };
+        ( $w:expr, $h:expr, $tw:expr, $th:expr ) => { 
+            crate::state::Context::set_size($w,$h);
+            crate::state::Context::set_tile_size($tw,$th);
+        };
     }
 
     macro_rules! map {
