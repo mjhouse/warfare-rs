@@ -197,10 +197,15 @@ fn generator_configure_system(
                 .get(&LayerUse::Selection)
                 .expect("Must have selection layer");
 
-            state.marker.remove(&mut map);
+            if let Err(e) = state.marker.remove(&mut map){
+                log::warn!("{:?}",e);
+            }
             *state.marker.texture_mut() = t;
             *state.marker.layer_mut() = l;
-            state.marker.insert(&mut map);
+
+            if let Err(e) = state.marker.insert(&mut map){
+                log::warn!("{:?}",e);
+            }
         }
     }
 }

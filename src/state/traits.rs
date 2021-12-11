@@ -1,6 +1,7 @@
 use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::Color;
 use crate::objects::Point;
+use crate::error::Result;
 
 pub trait HasPosition {
     fn position(&self) -> &Point;
@@ -27,11 +28,11 @@ pub trait AsTile {
 }
 
 pub trait CanMove {
-    fn moveto(&mut self, map: &mut Tilemap, point: Point); // TODO: return error type here
+    fn moveto(&mut self, map: &mut Tilemap, point: Point) -> Result<()>;
 
-    fn remove(&self, map: &mut Tilemap); // TODO: return error type here
+    fn remove(&self, map: &mut Tilemap) -> Result<()>;
 
-    fn insert(&self, map: &mut Tilemap); // TODO: return error type here
+    fn insert(&self, map: &mut Tilemap) -> Result<()>;
 }
 
 impl<T> AsTile for T 
@@ -56,24 +57,23 @@ impl<T> CanMove for T
 where 
     T: HasPosition + HasLayer + AsTile
 {
-    fn moveto(&mut self, map: &mut Tilemap, point: Point) {
-        self.remove(map);
+    fn moveto(&mut self, map: &mut Tilemap, point: Point) -> Result<()> {
+        self.remove(map)?;
         *self.position_mut() = point;
-        self.insert(map);
+        self.insert(map)?;
+        Ok(())
     }
 
-    fn remove(&self, map: &mut Tilemap) {
+    fn remove(&self, map: &mut Tilemap) -> Result<()> {
         let p = self.position().integers();
         let z = self.layer().clone();
-        if let Err(e) = map.clear_tile(p,z) {
-            log::warn!("{:?}",e);
-        }
+        map.clear_tile(p,z)?;
+        Ok(())
     }
 
-    fn insert(&self, map: &mut Tilemap) {
+    fn insert(&self, map: &mut Tilemap) -> Result<()> {
         let tile = self.as_tile();
-        if let Err(e) = map.insert_tile(tile) {
-            log::warn!("{:?}",e);
-        }
+        map.insert_tile(tile)?;
+        Ok(())
     }
 }

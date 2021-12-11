@@ -28,13 +28,15 @@ pub struct Selection {
 
     pub start: Option<(i32,i32)>,
 
-    pub actions: i32,
+    pub actions: Option<i32>,
 
     /// the path from the initial position
     pub path: Vec<Point>,
 
     /// the button that triggers selection
 	pub button: MouseButton,
+
+    pub interacting: bool,
 }
 
 impl Selection {
@@ -52,9 +54,10 @@ impl Default for Selection {
             selected: (0,0),
             unit: None,
             start: None,
-            actions: 0,
+            actions: None,
             path: vec![],
             button: MouseButton::Left,
+            interacting: false,
 		}
 	}
 }
@@ -74,6 +77,10 @@ fn selected_position_system(
 
     let window = windows.get_primary().unwrap();
     let mut selection = query.single_mut().expect("Need selection");
+
+    if selection.interacting {
+        return;
+    }
 
     if !selection.hovering {
         return;
@@ -113,6 +120,10 @@ fn selected_hovered_system(
     let tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
 
+    if selection.interacting {
+        return;
+    }
+
     if !selection.hovering {
         return;
     }
@@ -141,6 +152,10 @@ fn selected_highlight_system(
     let mut selection = sel_query.single_mut().expect("Need selection");
     let mut map = map_query.single_mut().expect("Need tilemap");
 
+    if selection.interacting {
+        return;
+    }
+
     if !selection.hovering {
         return;
     }
@@ -151,7 +166,9 @@ fn selected_highlight_system(
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-                state.marker.moveto(&mut map,selection.selected.into());
+                if let Err(e) = state.marker.moveto(&mut map,selection.selected.into()){
+                    log::warn!("{:?}",e);
+                }
                 state.events.send(Action::SelectionChanged);
             }
         }
@@ -187,11 +204,11 @@ fn selected_highlight_system(
                 selection.start = None;
             }
             if let Some(unit) = state.find_unit(&point) {
-                if selection.actions > 0 {
-                    unit.actions = selection.actions as u32;
+                if let Some(mut actions) = selection.actions {
+                    if actions < 0 { actions = 0; }
+                    unit.actions = actions as u32;
                 }
-                dbg!(unit.actions);
-                selection.actions = 0;
+                selection.actions = None;
             }
             selection.unit = None;
         }

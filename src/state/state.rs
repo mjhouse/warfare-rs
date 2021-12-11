@@ -115,7 +115,7 @@ impl Default for State {
 }
 
 macro_rules! context {
-    () => { CONTEXT.lock().expect("No context") }
+    () => { CONTEXT.lock().expect("Could not lock context") }
 }
 
 impl Context {
@@ -171,6 +171,13 @@ impl Context {
 }
 
 impl State {
+
+    pub fn end_turn(&mut self) {
+        self.calendar.advance();
+        for unit in self.units.iter_mut() {
+            unit.actions = unit.capacity;
+        }
+    }
 
     pub fn impedance_map(&self) -> HashMap<Point,f32> {
         self.areas

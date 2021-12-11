@@ -91,7 +91,7 @@ fn control_movement_system(
                     start.clone(), 
                     end.clone());
 
-                let path = finder
+                let mut path = finder
                     .find_weighted()
                     .into_iter()
                     .filter(|(_,c)| {
@@ -99,38 +99,47 @@ fn control_movement_system(
                         actions >= 0
                     })
                     .map(|(p,_)| p)
-                    .filter(|p| p != &end)
+                    // .filter(|p| p != &end)
                     .collect::<Vec<Point>>();
 
-                let points = selection.path
-                    .iter()
-                    .map(|p| (p.integers(),layer))
-                    .collect::<Vec<((i32,i32),usize)>>();
+                if let Some(end_point) = path.last().cloned() {
+                    path = path
+                        .into_iter()
+                        .filter(|&p| p != end_point)
+                        .collect();
 
-                let tiles = path
-                    .iter()
-                    .map(|p| Tile {
-                        point: p.integers(),
-                        sprite_order: layer,
-                        sprite_index: blank,
-                        tint: Color::rgba(1.,1.,1.,0.25),
-                    })
-                    .collect::<Vec<Tile<(i32,i32)>>>();
+                    let points = selection.path
+                        .iter()
+                        .map(|p| (p.integers(),layer))
+                        .collect::<Vec<((i32,i32),usize)>>();
 
-                if let Err(e) = tilemap.clear_tiles(points) {
-                    log::warn!("{:?}",e);
-                }
+                    let tiles = path
+                        .iter()
+                        .map(|p| Tile {
+                            point: p.integers(),
+                            sprite_order: layer,
+                            sprite_index: blank,
+                            tint: Color::rgba(1.,1.,1.,0.25),
+                        })
+                        .collect::<Vec<Tile<(i32,i32)>>>();
 
-                if let Err(e) = tilemap.insert_tiles(tiles) {
-                    log::warn!("{:?}",e);
-                }
+                    if let Err(e) = tilemap.clear_tiles(points) {
+                        log::warn!("{:?}",e);
+                    }
 
-                selection.path = path;
-                selection.actions = actions;
+                    if let Err(e) = tilemap.insert_tiles(tiles) {
+                        log::warn!("{:?}",e);
+                    }
 
-                if let Some(unit) = state.find_unit(&old_point) {
-                    unit.moveto(&mut tilemap, new_point.into());
-                    selection.unit = Some(new_point);
+                    selection.path = path;
+                    selection.actions = Some(actions);
+
+                    if let Some(unit) = state.find_unit(&old_point) {
+                        if let Err(e) = unit.moveto(&mut tilemap, end_point.clone()) {
+                            log::warn!("{:?}",e);
+                        }
+                        selection.unit = Some(end_point.integers());
+                    }
                 }
             }
         }

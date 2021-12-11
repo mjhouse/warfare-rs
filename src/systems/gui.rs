@@ -61,7 +61,9 @@ fn gui_display_system(
     let window = windows.get_primary().unwrap();
     let mut selection = query.single_mut().expect("Need selection");
 
-    egui::SidePanel::left("side_panel")
+    let mut hovering = false;
+
+    hovering = hovering || egui::SidePanel::left("side_panel")
         .default_width(200.0)
         .show(context.ctx(), |ui| {
             ui.separator();
@@ -112,7 +114,7 @@ fn gui_display_system(
                 }
     
                 if ui.button("End Turn").clicked() {
-                    state.calendar.advance();
+                    state.end_turn();
                     state.events.send(Action::UpdateTerrain);
                 }
 
@@ -158,7 +160,51 @@ fn gui_display_system(
             else {
                 selection.hovering = false;
             }
-        });
+        }).response.hovered();
+
+    
+    if let Some(unit) = state.find_unit(&selection.selected) {
+        if let Some(window) = egui::Window::new("Unit")
+            .default_width(100.0)
+            .default_height(100.0)
+            .collapsible(false)
+            .show(context.ctx(), |ui| {
+                ui.set_width(ui.available_width());
+                ui.set_height(ui.available_height());
+
+                ui.monospace(format!("ID:     {}",unit.id));
+                ui.monospace(format!("AP:     {}",unit.actions));
+                ui.monospace(format!("Max AP: {}",unit.capacity));
+
+                // TODO: fix this bullshit
+                if let Some(mut p) = window.cursor_position() {
+                    let mut r = ui.min_rect();
+                    let s = ui.style();
+
+                    p.y = window.height() - p.y;
+                    
+                    let pad  = s.spacing.window_padding;
+                    let side = s.interaction.resize_grab_radius_side;
+
+                    r.min.x -= pad.x + side;
+                    r.max.x += pad.x + side + 5.;
+                    r.min.y -= pad.y + side + 25.;
+                    r.max.y += pad.y + side;
+
+                    if p.x >= r.min.x && p.x <= r.max.x && p.y >= r.min.y && p.y <= r.max.y {
+                        selection.hovering = false;
+                    }
+                }
+                else {
+                    selection.hovering = false;
+                }
+            })
+        {
+            hovering = hovering || window.response.hovered();
+        }
+    }
+
+    selection.interacting = hovering;
 }
 
 impl Plugin for GuiPlugin {

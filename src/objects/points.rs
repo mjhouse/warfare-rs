@@ -309,6 +309,7 @@ impl Point<Offset> {
          (i / w) - (h / 2)).into()
     }
 
+    /// https://www.gamedev.net/tutorials/programming/general-and-gameplay-programming/coordinates-in-hexagon-based-tile-maps-r1800/
     pub fn from_global(ox: f32, oy: f32) -> Point<Offset> {
         let s = Context::tile_size();
 

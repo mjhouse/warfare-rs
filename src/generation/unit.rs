@@ -2,22 +2,24 @@ use crate::generation::id;
 use crate::state::traits::*;
 use crate::objects::Point;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Unit {
     /// globally unique id
-    id: usize,
+    pub id: usize,
 
     /// layer for this unit
-    layer: usize,
+    pub layer: usize,
 
     /// texture for this unit
-    texture: usize,
+    pub texture: usize,
 
     /// position of the unit
-    position: Point,
+    pub position: Point,
 
     /// how much unit can do
     pub actions: u32,
+
+    pub capacity: u32,
 }
 
 impl Unit {
@@ -29,6 +31,7 @@ impl Unit {
             texture: texture,
             position: position,
             actions: 100,
+            capacity: 100,
         }
     }
 
