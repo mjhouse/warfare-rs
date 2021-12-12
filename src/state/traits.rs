@@ -2,6 +2,17 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::Color;
 use crate::objects::Point;
 use crate::error::Result;
+use crate::generation::Marker;
+
+pub trait HasId {
+    fn id(&self) -> &usize;
+}
+
+pub trait HasMarker {
+    fn marker(&self) -> &Marker;
+
+    fn marker_mut(&mut self) -> &mut Marker;
+}
 
 pub trait HasPosition {
     fn position(&self) -> &Point;
@@ -33,6 +44,33 @@ pub trait CanMove {
     fn remove(&self, map: &mut Tilemap) -> Result<()>;
 
     fn insert(&self, map: &mut Tilemap) -> Result<()>;
+}
+
+impl<T> HasPosition for T 
+where
+    T: HasMarker
+{
+    fn position(&self) -> &Point { &self.marker().position }
+
+    fn position_mut(&mut self) -> &mut Point { &mut self.marker_mut().position }
+}
+
+impl<T> HasLayer for T 
+where
+    T: HasMarker
+{
+    fn layer(&self) -> &usize { &self.marker().layer }
+
+    fn layer_mut(&mut self) -> &mut usize { &mut self.marker_mut().layer }
+}
+
+impl<T> HasTexture for T 
+where
+    T: HasMarker
+{
+    fn texture(&self) -> &usize { &self.marker().texture }
+
+    fn texture_mut(&mut self) -> &mut usize { &mut self.marker_mut().texture }
 }
 
 impl<T> AsTile for T 

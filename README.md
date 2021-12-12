@@ -1,6 +1,8 @@
 # Warfare
 
-This is the codebase for a multiplayer, 2d, turn-based strategy wargame tentatively titled Warfare (imaginative, I know). It's written in [rust](https://www.rust-lang.org/) (because I like rust) and uses the [bevy game engine](https://bevyengine.org/). Warfare is set in the modern day (using weapons and units currently available in 202X) and is intended to be a highly granular, detailed game.
+This is the codebase for a multiplayer, 2d, turn-based strategy wargame tentatively titled Warfare (imaginative, I know). It's written in [rust](https://www.rust-lang.org/) (because I like rust) and uses the [bevy game engine](https://bevyengine.org/). Warfare is set in the modern day (using weapons and units currently available in 202X) and is intended to be a highly granular, detailed game.  
+
+You can see the latest progress on [YouTube](https://www.youtube.com/channel/UCtBIpCfmJmMkwIpCpck7ELw).
 
 ## Proposed Features
 

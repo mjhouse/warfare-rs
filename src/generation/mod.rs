@@ -6,10 +6,10 @@ mod terrain;
 mod generate;
 
 mod marker;
-mod unit;
 mod area;
 
 pub mod id;
+pub mod unit;
 
 pub use factors::Factors;
 pub use generate::Generator;
@@ -37,10 +37,12 @@ pub use area::{
     Attribute,
 };
 
-pub use unit::{
-    Unit,
-};
-
 pub use marker::{
     Marker,
+    Cursor,
+};
+
+pub use unit::{
+    Unit,
+    Specialty,
 };

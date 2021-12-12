@@ -5,6 +5,7 @@ mod calendar;
 mod movement;
 
 pub mod traits;
+pub mod demographics;
 
 pub use state::{Context,State,Terrain};
 pub use calendar::{Calendar,Season};

@@ -2,7 +2,7 @@ use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
 
 use crate::systems::selection::Selection;
-use crate::generation::{LayerUse,Unit};
+use crate::generation::{LayerUse,Unit,Specialty};
 use crate::state::{State,Action,traits::*};
 
 pub struct ControlPlugin;
@@ -23,27 +23,16 @@ fn control_place_system(
         let mut tilemap = map_query.single_mut().expect("Need tilemap");
         let selection = sel_query.single_mut().expect("Need selection");
         
-        let i = state.layers
-            .get(&LayerUse::Units)
-            .expect("Must have selection layer");
-            
-        let m = state.textures.get("unit");
-
         if let Some(_) = state.areas.get(&selection.selected) {
-            // add unit token to map
-            let result = tilemap.insert_tile(Tile {
-                point: selection.selected.clone(),
-                sprite_order: i,
-                sprite_index: m,
-                tint: Color::WHITE,
-            });
+            // add a unit to the map
+            let unit = Unit::new()
+                .with_specialty(Specialty::Infantry)
+                .with_soldiers(100)
+                .with_position(selection.selected.into())
+                .build(&state);
 
-            if let Err(e) = result {
-                log::warn!("{:?}",e);
-            }
-
-            // add unit to state
-            state.units.push(Unit::new(i,m,selection.selected.into()));
+            unit.insert(&mut tilemap);
+            state.units.push(unit);
         }
 
         state.events.clear(Action::PlaceUnit);
@@ -78,14 +67,19 @@ fn control_movement_system(
                 let impedance = state
                     .impedance_map();
                 
-                let mut actions = state
+                let initial = state
                     .find_unit(&old_point)
-                    .map(|u| u.actions)
-                    .unwrap_or(0) as i32;
+                    .map(|u| u.actions())
+                    .unwrap_or(0) 
+                    as i32;
+                
+                let mut actions = initial;
 
                 let start: Point = selection.start.unwrap_or(old_point).into();
                 let end: Point = new_point.into();
 
+                // find a path and shorten until actions
+                // is negative (no more action points)
                 let finder = Pathfinder::new(
                     impedance, 
                     start.clone(), 
@@ -99,9 +93,10 @@ fn control_movement_system(
                         actions >= 0
                     })
                     .map(|(p,_)| p)
-                    // .filter(|p| p != &end)
                     .collect::<Vec<Point>>();
 
+                // if there is at least one point in the path,
+                // then display the path and allow the unit to move.
                 if let Some(end_point) = path.last().cloned() {
                     path = path
                         .into_iter()
@@ -132,7 +127,7 @@ fn control_movement_system(
                     }
 
                     selection.path = path;
-                    selection.actions = Some(actions);
+                    selection.actions = Some(initial - actions.max(0));
 
                     if let Some(unit) = state.find_unit(&old_point) {
                         if let Err(e) = unit.moveto(&mut tilemap, end_point.clone()) {

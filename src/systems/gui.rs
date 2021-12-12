@@ -3,6 +3,7 @@ use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 use crate::generation::{Biome,Soil};
 use crate::state::{State,Action};
 use crate::systems::selection::Selection;
+use crate::state::traits::HasId;
 
 pub struct GuiPlugin;
 
@@ -121,6 +122,10 @@ fn gui_display_system(
                 if ui.button("Place Unit").clicked() {
                     state.events.send(Action::PlaceUnit);
                 }
+
+                if ui.button("Debug").clicked() {
+                    
+                }
             });
 
             ui.label(format!("{}",state.calendar));
@@ -165,16 +170,50 @@ fn gui_display_system(
     
     if let Some(unit) = state.find_unit(&selection.selected) {
         if let Some(window) = egui::Window::new("Unit")
-            .default_width(100.0)
-            .default_height(100.0)
+            .default_width(300.0)
+            .default_height(400.0)
             .collapsible(false)
             .show(context.ctx(), |ui| {
                 ui.set_width(ui.available_width());
                 ui.set_height(ui.available_height());
 
-                ui.monospace(format!("ID:     {}",unit.id));
-                ui.monospace(format!("AP:     {}",unit.actions));
-                ui.monospace(format!("Max AP: {}",unit.capacity));
+                ui.separator();
+                ui.heading("Info");
+
+                ui.monospace(format!("ID:     {}",unit.id()));
+                ui.monospace(format!("Type:   {:?}",unit.specialty()));
+                ui.monospace(format!("AP:     {}",unit.actions()));
+                ui.monospace(format!("Max AP: {}",unit.max_actions()));
+
+                ui.separator();
+                ui.heading("Soldiers");
+                ui.separator();
+
+                egui::ScrollArea::auto_sized()
+                    .show(ui, |ui| {
+                    for soldier in unit.soldiers() {
+                        let (h,mh) = soldier.health();
+                        let (m,mm) = soldier.morale();
+                        let (d,md) = soldier.defense();
+                        let (a,ma) = soldier.attack();
+                        let p = soldier.actions();
+                        let mp = soldier.max_actions();
+
+                        ui.group(|ui|{
+                            ui.set_width(ui.available_width());
+                            ui.monospace(format!("  Name:    {}",soldier.name()));
+                            ui.monospace(format!("  Age:     {}",soldier.age()));
+                            ui.monospace(format!("  Sex:     {:?}",soldier.sex()));
+                            ui.monospace(format!("  Weight:  {}kg",soldier.weight()));
+                            ui.monospace(format!("  Height:  {}cm",soldier.height()));
+                            ui.monospace(format!("  AP:      {} / {}",p,mp));
+                            ui.monospace(format!("  HP:      {} / {}",h,mh));
+                            ui.monospace(format!("  Morale:  {} / {}",m,mm));
+                            ui.monospace(format!("  Defense: {} / {}",d,md));
+                            ui.monospace(format!("  Attack:  {} / {}",a,ma));
+                        });
+                    }
+                });
 
                 // TODO: fix this bullshit
                 if let Some(mut p) = window.cursor_position() {

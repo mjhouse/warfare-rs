@@ -166,7 +166,7 @@ fn selected_highlight_system(
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-                if let Err(e) = state.marker.moveto(&mut map,selection.selected.into()){
+                if let Err(e) = state.cursor.moveto(&mut map,selection.selected.into()){
                     log::warn!("{:?}",e);
                 }
                 state.events.send(Action::SelectionChanged);
@@ -205,8 +205,7 @@ fn selected_highlight_system(
             }
             if let Some(unit) = state.find_unit(&point) {
                 if let Some(mut actions) = selection.actions {
-                    if actions < 0 { actions = 0; }
-                    unit.actions = actions as u32;
+                    unit.use_actions(actions.max(0).min(255) as u8);
                 }
                 selection.actions = None;
             }

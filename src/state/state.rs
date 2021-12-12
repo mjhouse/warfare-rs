@@ -21,7 +21,7 @@ use crate::generation::{
     Generator,
     Layers,
     Unit,
-    Marker,
+    Cursor,
 };
 
 static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
@@ -80,7 +80,7 @@ pub struct State {
     /// all units on the board
     pub units: Vec<Unit>,
 
-    pub marker: Marker,
+    pub cursor: Cursor,
 }
 
 impl Default for Context {
@@ -109,7 +109,7 @@ impl Default for State {
             events: Default::default(),
             calendar: Default::default(),
             units: Default::default(),
-            marker: Default::default(),
+            cursor: Default::default(),
         }
     }
 }
@@ -175,7 +175,7 @@ impl State {
     pub fn end_turn(&mut self) {
         self.calendar.advance();
         for unit in self.units.iter_mut() {
-            unit.actions = unit.capacity;
+            unit.reset_actions()
         }
     }
 

@@ -1,5 +1,4 @@
 use noise::{NoiseFn,Worley,Value,SuperSimplex,Seedable};
-use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use std::collections::HashMap;
 
@@ -29,7 +28,6 @@ struct Resources {
     simplex: SuperSimplex,
     worley: Worley,
     value: Value,
-    random: Pcg64,
 }
 
 #[derive(Default,Clone)]
@@ -59,7 +57,6 @@ impl Default for Resources {
             simplex: SuperSimplex::new().set_seed(0),
             worley:  Worley::new().set_seed(0),
             value:   Value::new().set_seed(0),
-            random:  Pcg64::seed_from_u64(0),
         }
     }
 }
@@ -72,7 +69,6 @@ impl Generator {
                 simplex: SuperSimplex::new().set_seed(seed),
                 worley: Worley::new().set_seed(seed),
                 value: Value::new().set_seed(seed),
-                random: Pcg64::seed_from_u64(seed as u64),
             },
             context: Context {
                 seed: seed,

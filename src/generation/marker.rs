@@ -1,53 +1,50 @@
 use crate::generation::id;
-use crate::state::traits::{HasPosition,HasLayer,HasTexture};
+use crate::state::traits::*;
 use crate::objects::Point;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Marker {
-    /// globally unique id
-    id: usize,
+    /// layer for this unit
+    pub layer: usize,
 
-    /// layer for this marker
-    layer: usize,
+    /// texture for this unit
+    pub texture: usize,
 
-    /// texture for this marker
-    texture: usize,
-
-    /// position of the marker
-    position: Point,
+    /// position of the unit
+    pub position: Point,
 }
 
-impl Marker {
+/// thin marker for selection highlight
+#[derive(Debug, Clone)]
+pub struct Cursor {
+    /// globally unique id
+    pub id: usize,
+
+    /// display information
+    pub marker: Marker,
+}
+
+impl Cursor {
     pub fn new(layer: usize, texture: usize, position: Point) -> Self {
         Self {
             id: id::get(),
-            layer: layer,
-            texture: texture,
-            position: position,
+            marker: Marker {
+                layer, 
+                texture, 
+                position,
+            },
         }
     }
 }
 
-impl Default for Marker {
+impl Default for Cursor {
     fn default() -> Self {
         Self::new(0,0,(0,0).into())
     }
 }
 
-impl HasPosition for Marker {
-    fn position(&self) -> &Point { &self.position }
+impl HasMarker for Cursor {
+    fn marker(&self) -> &Marker { &self.marker }
 
-    fn position_mut(&mut self) -> &mut Point { &mut self.position }
-}
-
-impl HasLayer for Marker {
-    fn layer(&self) -> &usize { &self.layer }
-
-    fn layer_mut(&mut self) -> &mut usize { &mut self.layer }
-}
-
-impl HasTexture for Marker {
-    fn texture(&self) -> &usize { &self.texture }
-
-    fn texture_mut(&mut self) -> &mut usize { &mut self.texture }
+    fn marker_mut(&mut self) -> &mut Marker { &mut self.marker }
 }
