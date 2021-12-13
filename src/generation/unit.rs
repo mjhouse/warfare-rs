@@ -5,7 +5,7 @@ use crate::objects::Point;
 use crate::state::demographics::{Sex,Demographics};
 use crate::objects::Name;
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Copy)]
 pub enum Specialty {
     Infantry,
     Medical,

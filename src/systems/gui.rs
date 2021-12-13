@@ -171,7 +171,7 @@ fn gui_display_system(
     if let Some(unit) = state.find_unit(&selection.selected) {
         if let Some(window) = egui::Window::new("Unit")
             .default_width(300.0)
-            .default_height(400.0)
+            .default_height(200.0)
             .collapsible(false)
             .show(context.ctx(), |ui| {
                 ui.set_width(ui.available_width());
@@ -186,33 +186,32 @@ fn gui_display_system(
                 ui.monospace(format!("Max AP: {}",unit.max_actions()));
 
                 ui.separator();
-                ui.heading("Soldiers");
-                ui.separator();
+                ui.collapsing("Soldiers",|ui|{
+                    egui::ScrollArea::auto_sized()
+                        .show(ui, |ui| {
+                        for soldier in unit.soldiers() {
+                            let (h,mh) = soldier.health();
+                            let (m,mm) = soldier.morale();
+                            let (d,md) = soldier.defense();
+                            let (a,ma) = soldier.attack();
+                            let p = soldier.actions();
+                            let mp = soldier.max_actions();
 
-                egui::ScrollArea::auto_sized()
-                    .show(ui, |ui| {
-                    for soldier in unit.soldiers() {
-                        let (h,mh) = soldier.health();
-                        let (m,mm) = soldier.morale();
-                        let (d,md) = soldier.defense();
-                        let (a,ma) = soldier.attack();
-                        let p = soldier.actions();
-                        let mp = soldier.max_actions();
-
-                        ui.group(|ui|{
-                            ui.set_width(ui.available_width());
-                            ui.monospace(format!("  Name:    {}",soldier.name()));
-                            ui.monospace(format!("  Age:     {}",soldier.age()));
-                            ui.monospace(format!("  Sex:     {:?}",soldier.sex()));
-                            ui.monospace(format!("  Weight:  {}kg",soldier.weight()));
-                            ui.monospace(format!("  Height:  {}cm",soldier.height()));
-                            ui.monospace(format!("  AP:      {} / {}",p,mp));
-                            ui.monospace(format!("  HP:      {} / {}",h,mh));
-                            ui.monospace(format!("  Morale:  {} / {}",m,mm));
-                            ui.monospace(format!("  Defense: {} / {}",d,md));
-                            ui.monospace(format!("  Attack:  {} / {}",a,ma));
-                        });
-                    }
+                            ui.group(|ui|{
+                                ui.set_width(ui.available_width());
+                                ui.monospace(format!("  Name:    {}",soldier.name()));
+                                ui.monospace(format!("  Age:     {}",soldier.age()));
+                                ui.monospace(format!("  Sex:     {:?}",soldier.sex()));
+                                ui.monospace(format!("  Weight:  {}kg",soldier.weight()));
+                                ui.monospace(format!("  Height:  {}cm",soldier.height()));
+                                ui.monospace(format!("  AP:      {} / {}",p,mp));
+                                ui.monospace(format!("  HP:      {} / {}",h,mh));
+                                ui.monospace(format!("  Morale:  {} / {}",m,mm));
+                                ui.monospace(format!("  Defense: {} / {}",d,md));
+                                ui.monospace(format!("  Attack:  {} / {}",a,ma));
+                            });
+                        }
+                    });
                 });
 
                 // TODO: fix this bullshit
