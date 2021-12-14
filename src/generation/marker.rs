@@ -1,6 +1,6 @@
 use crate::generation::id;
-use crate::state::traits::*;
 use crate::objects::Point;
+use crate::state::traits::*;
 
 #[derive(Debug, Clone)]
 pub struct Marker {
@@ -29,8 +29,8 @@ impl Cursor {
         Self {
             id: id::get(),
             marker: Marker {
-                layer, 
-                texture, 
+                layer,
+                texture,
                 position,
             },
         }
@@ -39,12 +39,16 @@ impl Cursor {
 
 impl Default for Cursor {
     fn default() -> Self {
-        Self::new(0,0,(0,0).into())
+        Self::new(0, 0, (0, 0).into())
     }
 }
 
 impl HasMarker for Cursor {
-    fn marker(&self) -> &Marker { &self.marker }
+    fn marker(&self) -> &Marker {
+        &self.marker
+    }
 
-    fn marker_mut(&mut self) -> &mut Marker { &mut self.marker }
+    fn marker_mut(&mut self) -> &mut Marker {
+        &mut self.marker
+    }
 }

@@ -1,12 +1,11 @@
-
-mod state;
-mod events;
 mod calendar;
+mod events;
 mod movement;
+mod state;
 
-pub mod traits;
 pub mod demographics;
+pub mod traits;
 
-pub use state::{Context,State,Terrain};
-pub use calendar::{Calendar,Season};
-pub use events::{Events,Action};
+pub use calendar::{Calendar, Season};
+pub use events::{Action, Events};
+pub use state::{Context, State, Terrain};

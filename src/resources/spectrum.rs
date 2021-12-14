@@ -1,6 +1,6 @@
 use bevy::prelude::Color;
 
-#[derive(Default,Debug,Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Shade {
     h: f32,
     s: f32,
@@ -8,18 +8,27 @@ pub struct Shade {
     a: f32,
 }
 
-#[derive(Default,Debug,Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Spectrum {
     start: Shade,
-    end:   Shade,
+    end: Shade,
 }
 
 impl Spectrum {
-
     pub fn empty() -> Self {
         Self {
-            start: Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 },
-            end:   Shade { h: 0.0, s: 1.0, l: 1.0, a: 0.0 },
+            start: Shade {
+                h: 0.0,
+                s: 1.0,
+                l: 1.0,
+                a: 0.0,
+            },
+            end: Shade {
+                h: 0.0,
+                s: 1.0,
+                l: 1.0,
+                a: 0.0,
+            },
         }
     }
 
@@ -38,12 +47,12 @@ impl Spectrum {
     }
 
     pub fn get(&self, value: f32) -> Color {
-        let h = self.interp_hue(&self.start,&self.end,value);
-        let s = self.interpolate(self.start.s,self.end.s,value);
-        let l = self.interpolate(self.start.l,self.end.l,value);
-        let a = self.interpolate(self.start.a,self.end.a,value);
-        let (r,g,b) = self.convert_color(h,s,l);
-        Color::rgba(r,g,b,a)
+        let h = self.interp_hue(&self.start, &self.end, value);
+        let s = self.interpolate(self.start.s, self.end.s, value);
+        let l = self.interpolate(self.start.l, self.end.l, value);
+        let a = self.interpolate(self.start.a, self.end.a, value);
+        let (r, g, b) = self.convert_color(h, s, l);
+        Color::rgba(r, g, b, a)
     }
 
     fn interp_hue(&self, start: &Shade, end: &Shade, mut v: f32) -> f32 {
@@ -66,9 +75,8 @@ impl Spectrum {
 
         if d > 0.5 {
             a.h = a.h + 1.;
-            h = ( a.h + v * (b.h - a.h) ) % 1.;
-        }
-        else {
+            h = (a.h + v * (b.h - a.h)) % 1.;
+        } else {
             h = a.h + v * d;
         }
 
@@ -79,7 +87,7 @@ impl Spectrum {
         start * (1.0 - v) + end * v
     }
 
-    fn convert_color(&self, h: f32, s: f32, l: f32) -> (f32,f32,f32) {
+    fn convert_color(&self, h: f32, s: f32, l: f32) -> (f32, f32, f32) {
         let r;
         let g;
         let b;
@@ -88,27 +96,39 @@ impl Spectrum {
             r = l;
             g = l;
             b = l;
-        }
-        else {
-            let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+        } else {
+            let q = if l < 0.5 {
+                l * (1.0 + s)
+            } else {
+                l + s - l * s
+            };
             let p = 2.0 * l - q;
-            r = self.convert_value(p, q, h + 1.0/3.0);
+            r = self.convert_value(p, q, h + 1.0 / 3.0);
             g = self.convert_value(p, q, h);
-            b = self.convert_value(p, q, h - 1.0/3.0);
+            b = self.convert_value(p, q, h - 1.0 / 3.0);
         }
 
-        ( r, g, b )
+        (r, g, b)
     }
 
     fn convert_value(&self, p: f32, q: f32, mut t: f32) -> f32 {
-        if t < 0.0 { t += 1.0 };
-        if t > 1.0 { t -= 1.0 };
-        if t < 1.0/6.0 { return p + (q - p) * 6.0 * t };
-        if t < 1.0/2.0 { return q };
-        if t < 2.0/3.0 { return p + (q - p) * (2.0/3.0 - t) * 6.0 };
+        if t < 0.0 {
+            t += 1.0
+        };
+        if t > 1.0 {
+            t -= 1.0
+        };
+        if t < 1.0 / 6.0 {
+            return p + (q - p) * 6.0 * t;
+        };
+        if t < 1.0 / 2.0 {
+            return q;
+        };
+        if t < 2.0 / 3.0 {
+            return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+        };
         p
     }
-
 }
 
 /**
@@ -182,13 +202,16 @@ impl Spectrum {
 impl From<Color> for Shade {
     fn from(color: Color) -> Self {
         match color.as_hsla() {
-            Color::Hsla { hue, saturation, lightness, alpha } => {
-                Self {
-                    h: hue,
-                    s: saturation,
-                    l: lightness,
-                    a: alpha,
-                }
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => Self {
+                h: hue,
+                s: saturation,
+                l: lightness,
+                a: alpha,
             },
             _ => unreachable!(),
         }

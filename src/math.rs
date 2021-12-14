@@ -1,6 +1,3 @@
-
-
-
 pub trait MidRound {
     fn mid(&self) -> Self;
 }
@@ -27,11 +24,14 @@ impl MidRound for f64 {
 
 #[allow(dead_code)]
 pub fn distance(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-    ((x2-x1).powf(2.0) + (y2-y1).powf(2.0)).sqrt()
+    ((x2 - x1).powf(2.0) + (y2 - y1).powf(2.0)).sqrt()
 }
 
 #[allow(dead_code)]
 pub fn normalize(v: f32, mut min: f32, mut max: f32) -> f32 {
-    if min < 0.0 { max -= min; min = 0.0; }
+    if min < 0.0 {
+        max -= min;
+        min = 0.0;
+    }
     v - min / max - min
 }

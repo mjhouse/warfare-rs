@@ -1,11 +1,10 @@
-
 // TODO: remove location
 mod location;
-mod points;
-mod name;
 mod map;
+mod name;
+mod points;
 
-pub use name::{Name,NameGenerator};
 pub use location::Location;
-pub use points::{Point,Offset,Axial,Cubic};
-pub use map::{Map};
+pub use map::Map;
+pub use name::{Name, NameGenerator};
+pub use points::{Axial, Cubic, Offset, Point};

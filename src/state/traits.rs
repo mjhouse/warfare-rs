@@ -1,8 +1,8 @@
-use bevy_tilemap::{Tilemap,Tile};
-use bevy::prelude::Color;
-use crate::objects::Point;
 use crate::error::Result;
 use crate::generation::Marker;
+use crate::objects::Point;
+use bevy::prelude::Color;
+use bevy_tilemap::{Tile, Tilemap};
 
 pub trait HasId {
     fn id(&self) -> &usize;
@@ -33,9 +33,9 @@ pub trait HasTexture {
 }
 
 pub trait AsTile {
-    fn as_tile(&self) -> Tile<(i32,i32)>;
+    fn as_tile(&self) -> Tile<(i32, i32)>;
 
-    fn to_tile(self) -> Tile<(i32,i32)>;
+    fn to_tile(self) -> Tile<(i32, i32)>;
 }
 
 pub trait CanMove {
@@ -46,38 +46,50 @@ pub trait CanMove {
     fn insert(&self, map: &mut Tilemap) -> Result<()>;
 }
 
-impl<T> HasPosition for T 
+impl<T> HasPosition for T
 where
-    T: HasMarker
+    T: HasMarker,
 {
-    fn position(&self) -> &Point { &self.marker().position }
+    fn position(&self) -> &Point {
+        &self.marker().position
+    }
 
-    fn position_mut(&mut self) -> &mut Point { &mut self.marker_mut().position }
+    fn position_mut(&mut self) -> &mut Point {
+        &mut self.marker_mut().position
+    }
 }
 
-impl<T> HasLayer for T 
+impl<T> HasLayer for T
 where
-    T: HasMarker
+    T: HasMarker,
 {
-    fn layer(&self) -> &usize { &self.marker().layer }
+    fn layer(&self) -> &usize {
+        &self.marker().layer
+    }
 
-    fn layer_mut(&mut self) -> &mut usize { &mut self.marker_mut().layer }
+    fn layer_mut(&mut self) -> &mut usize {
+        &mut self.marker_mut().layer
+    }
 }
 
-impl<T> HasTexture for T 
+impl<T> HasTexture for T
 where
-    T: HasMarker
+    T: HasMarker,
 {
-    fn texture(&self) -> &usize { &self.marker().texture }
+    fn texture(&self) -> &usize {
+        &self.marker().texture
+    }
 
-    fn texture_mut(&mut self) -> &mut usize { &mut self.marker_mut().texture }
+    fn texture_mut(&mut self) -> &mut usize {
+        &mut self.marker_mut().texture
+    }
 }
 
-impl<T> AsTile for T 
-where 
-    T: HasPosition + HasLayer + HasTexture
+impl<T> AsTile for T
+where
+    T: HasPosition + HasLayer + HasTexture,
 {
-    fn as_tile(&self) -> Tile<(i32,i32)> {
+    fn as_tile(&self) -> Tile<(i32, i32)> {
         Tile {
             point: self.position().integers(),
             sprite_order: self.layer().clone(),
@@ -86,14 +98,14 @@ where
         }
     }
 
-    fn to_tile(self) -> Tile<(i32,i32)> {
+    fn to_tile(self) -> Tile<(i32, i32)> {
         (&self).as_tile()
     }
 }
 
-impl<T> CanMove for T 
-where 
-    T: HasPosition + HasLayer + AsTile
+impl<T> CanMove for T
+where
+    T: HasPosition + HasLayer + AsTile,
 {
     fn moveto(&mut self, map: &mut Tilemap, point: Point) -> Result<()> {
         self.remove(map)?;
@@ -105,7 +117,7 @@ where
     fn remove(&self, map: &mut Tilemap) -> Result<()> {
         let p = self.position().integers();
         let z = self.layer().clone();
-        map.clear_tile(p,z)?;
+        map.clear_tile(p, z)?;
         Ok(())
     }
 

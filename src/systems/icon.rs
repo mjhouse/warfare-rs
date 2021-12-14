@@ -6,9 +6,7 @@ use winit::window::Icon;
 
 pub struct IconPlugin;
 
-fn icon_system(
-    windows: Res<WinitWindows>,
-) {
+fn icon_system(windows: Res<WinitWindows>) {
     let primary = windows.get_window(WindowId::primary()).unwrap();
 
     // here we use the `image` crate to load our icon data from a png file
@@ -28,7 +26,7 @@ fn icon_system(
 }
 
 impl Plugin for IconPlugin {
-	fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(icon_system.system());  // get world position of pointer
-	}
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_system(icon_system.system()); // get world position of pointer
+    }
 }

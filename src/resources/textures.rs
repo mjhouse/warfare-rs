@@ -1,26 +1,25 @@
 use std::collections::HashMap;
 
+use bevy::asset::{AssetServer, HandleUntyped};
 use bevy::sprite::TextureAtlas;
-use bevy::asset::{AssetServer,HandleUntyped};
 
 use crate::generation::Soil;
 
-#[derive(Default,Clone)]
+#[derive(Default, Clone)]
 pub struct Textures {
-    textures: HashMap<&'static str,usize>,
+    textures: HashMap<&'static str, usize>,
     pub handles: Vec<HandleUntyped>,
     pub loaded: bool,
 }
 
 fn index(server: &AssetServer, atlas: &TextureAtlas, name: &str) -> usize {
-    let path = format!("textures/{}.png",name);
-    atlas.get_texture_index(
-        &server.get_handle(path.as_str()))
-            .expect(format!("Texture doesn't exist: {}",path).as_str())
+    let path = format!("textures/{}.png", name);
+    atlas
+        .get_texture_index(&server.get_handle(path.as_str()))
+        .expect(format!("Texture doesn't exist: {}", path).as_str())
 }
 
 impl Textures {
-
     pub fn load(&mut self, server: &AssetServer, atlas: &TextureAtlas) {
         let labels = vec![
             "water",
@@ -46,7 +45,7 @@ impl Textures {
 
         self.textures = labels
             .iter()
-            .map(|&l| ( l, index(server,atlas,l) ))
+            .map(|&l| (l, index(server, atlas, l)))
             .collect();
     }
 
@@ -65,5 +64,4 @@ impl Textures {
             Soil::None => self.get("blank"),
         }
     }
-
 }

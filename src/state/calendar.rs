@@ -1,6 +1,6 @@
 use chrono::naive::NaiveDate;
 use chrono::Datelike;
-use std::fmt::{ Display, Formatter, Debug, Result as FmtResult};
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 /// default year
 const YEAR: i32 = 2021;
@@ -34,9 +34,8 @@ impl Season {
 }
 
 impl Calendar {
-
     pub fn from_date(year: i32, month: u32, day: u32) -> Self {
-        let date = NaiveDate::from_ymd(year,month,day);
+        let date = NaiveDate::from_ymd(year, month, day);
         let turn = date.ordinal();
         let season = Season::from(turn);
 
@@ -44,7 +43,7 @@ impl Calendar {
     }
 
     pub fn from_turn(turn: u32) -> Self {
-        let date = NaiveDate::from_yo(YEAR,turn);
+        let date = NaiveDate::from_yo(YEAR, turn);
         let season = Season::from(turn);
 
         Self { turn, date, season }
@@ -59,7 +58,6 @@ impl Calendar {
     pub fn season(&self) -> Season {
         self.season.clone()
     }
-
 }
 
 impl Default for Calendar {
@@ -70,10 +68,7 @@ impl Default for Calendar {
 
 impl Display for Calendar {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}: {} ({})", 
-            self.turn, 
-            self.date, 
-            self.season )
+        write!(f, "{}: {} ({})", self.turn, self.date, self.season)
     }
 }
 
@@ -91,6 +86,6 @@ impl Display for Season {
 
 impl Debug for Calendar {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        Display::fmt(self,f)
+        Display::fmt(self, f)
     }
 }

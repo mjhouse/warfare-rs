@@ -1,22 +1,22 @@
 #![allow(unused)]
 
-use std::fmt::{Display,Formatter,Result,Debug};
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+use std::fmt::{Debug, Display, Formatter, Result};
 
 use crate::generation::WeatherType;
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Biome {
-    None,     // no biome value
-    Grassland,// high movement, low cover, med forage
-    Forest,   // low movement, provides cover
-    Desert,   // med move, heatstroke?
-    Tundra,   // med move, frostbite?
-    Aquatic,  // freshwater or marine, very low move
+    None,      // no biome value
+    Grassland, // high movement, low cover, med forage
+    Forest,    // low movement, provides cover
+    Desert,    // med move, heatstroke?
+    Tundra,    // med move, frostbite?
+    Aquatic,   // freshwater or marine, very low move
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Soil {
     None,  // no soil value
     Clay,  // holds water, bad fertility
@@ -27,7 +27,7 @@ pub enum Soil {
     Loam,  // high fert, med moisture
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Foliage {
     Grass,
     Trees,
@@ -36,7 +36,7 @@ pub enum Foliage {
     Rocks,
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Structure {
     None,
     Trenches,
@@ -46,21 +46,25 @@ pub enum Structure {
     City,
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Time {
     Day,
     Night,
 }
 
 /// stack of enums for everything that a tile contains
-pub struct Terrain((Biome,Soil,Foliage,Structure,WeatherType,Time));
+pub struct Terrain((Biome, Soil, Foliage, Structure, WeatherType, Time));
 
 impl Default for Biome {
-    fn default() -> Self { Self::None }
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Default for Soil {
-    fn default() -> Self { Self::None }
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Display for Biome {
@@ -104,12 +108,12 @@ impl From<u8> for Soil {
 
 impl Distribution<Biome> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Biome {
-        rng.gen_range::<u8,_>(0..5).into()
+        rng.gen_range::<u8, _>(0..5).into()
     }
 }
 
 impl Distribution<Soil> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Soil {
-        rng.gen_range::<u8,_>(0..6).into()
+        rng.gen_range::<u8, _>(0..6).into()
     }
 }

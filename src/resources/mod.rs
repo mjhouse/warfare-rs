@@ -1,6 +1,5 @@
-
-mod textures;
 mod spectrum;
+mod textures;
 
-pub use textures::Textures;
 pub use spectrum::Spectrum;
+pub use textures::Textures;

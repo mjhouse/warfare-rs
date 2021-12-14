@@ -1,4 +1,4 @@
-use bevy::input::mouse::{MouseButton,MouseWheel,MouseMotion};
+use bevy::input::mouse::{MouseButton, MouseMotion, MouseWheel};
 use bevy::prelude::*;
 
 pub struct CameraPlugin;
@@ -12,24 +12,24 @@ pub struct Camera {
 
     /// the speed of zoom operations
     pub zoom_speed: f32,
-    
+
     /// the position of the cursor
     pub position: Vec2,
-    
+
     /// the button that triggers camera panning
-	pub button: MouseButton,
+    pub button: MouseButton,
 }
 
 impl Default for Camera {
-	fn default() -> Self {
-		Self {
+    fn default() -> Self {
+        Self {
             scale: 1.25,
             pan_speed: 1.75,
             zoom_speed: 0.25,
             position: Vec2::ZERO,
             button: MouseButton::Right,
-		}
-	}
+        }
+    }
 }
 
 fn camera_movement_system(
@@ -37,10 +37,10 @@ fn camera_movement_system(
     mut scroll: EventReader<MouseWheel>,
     mut cursor: EventReader<CursorMoved>,
     mut motion: EventReader<MouseMotion>,
-	mut queries: Query<(&mut Camera, &mut Transform)>,
+    mut queries: Query<(&mut Camera, &mut Transform)>,
 ) {
-    let move_delta = motion.iter().fold(Vec2::ZERO,|a,e| a + e.delta);
-    let scroll_delta = scroll.iter().fold(0.0,|a,e| a + e.y);
+    let move_delta = motion.iter().fold(Vec2::ZERO, |a, e| a + e.delta);
+    let scroll_delta = scroll.iter().fold(0.0, |a, e| a + e.y);
     let position = cursor.iter().last().map(|v| v.position);
 
     if !move_delta.is_nan() {
@@ -61,7 +61,7 @@ fn camera_movement_system(
             }
 
             if inputs.pressed(camera.button) {
-                let (axis_x,axis_y) = (move_delta.x,move_delta.y);
+                let (axis_x, axis_y) = (move_delta.x, move_delta.y);
                 let s = camera.scale;
 
                 let x_value = axis_x * camera.pan_speed * s;
@@ -82,14 +82,14 @@ fn camera_movement_system(
 }
 
 impl Plugin for CameraPlugin {
-	fn build(&self, app: &mut AppBuilder) {
-		app.add_system(camera_movement_system.system());
-	}
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system(camera_movement_system.system());
+    }
 }
 
 pub fn setup(mut commands: Commands) {
-	commands
-		.spawn()
-		.insert_bundle(OrthographicCameraBundle::new_2d())
-		.insert(Camera::default());
+    commands
+        .spawn()
+        .insert_bundle(OrthographicCameraBundle::new_2d())
+        .insert(Camera::default());
 }

@@ -1,11 +1,11 @@
-use crate::generation::{id,Marker,LayerUse};
+use crate::generation::{id, LayerUse, Marker};
+use crate::objects::Name;
+use crate::objects::Point;
+use crate::state::demographics::{Demographics, Sex};
 use crate::state::traits::*;
 use crate::state::State;
-use crate::objects::Point;
-use crate::state::demographics::{Sex,Demographics};
-use crate::objects::Name;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Specialty {
     Infantry,
     Medical,
@@ -16,40 +16,40 @@ pub enum Specialty {
     // ... etc
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Soldier {
-    skill:   Specialty, // occupation
-    name:    Name,      // name
-    sex:     Sex,       // sex
-    age:     u8,        // age in years
-    weight:  u16,       // weight in kg
-    height:  u16,       // height in cm
-    actions: (u8,u8),   // (value,max)
-    health:  (u8,u8),   // (value,max)
-    veteran: (u8,u8),   // (value,max)
-    morale:  (u8,u8),   // (value,max)
-    defense: (u8,u8),   // (value,max)
-    attack:  (u8,u8),   // (value,max)
+    skill: Specialty,  // occupation
+    name: Name,        // name
+    sex: Sex,          // sex
+    age: u8,           // age in years
+    weight: u16,       // weight in kg
+    height: u16,       // height in cm
+    actions: (u8, u8), // (value,max)
+    health: (u8, u8),  // (value,max)
+    veteran: (u8, u8), // (value,max)
+    morale: (u8, u8),  // (value,max)
+    defense: (u8, u8), // (value,max)
+    attack: (u8, u8),  // (value,max)
 }
 
 impl Soldier {
     pub fn new(skill: &Specialty) -> Self {
         let d = Demographics::default();
-        let sex  = d.sex.gen();
+        let sex = d.sex.gen();
         let name = d.name.gen(sex);
         Self {
-            skill:   skill.clone(),
-            name:    name,
-            sex:     sex.clone(),
-            age:     d.age.gen(sex)    as u8,
-            weight:  d.weight.gen(sex) as u16,
-            height:  d.height.gen(sex) as u16,
-            actions: (100,100),
-            health:  (100,100),
-            veteran: (0,100),
-            morale:  (100,100),
-            defense: (100,100),
-            attack:  (100,100),
+            skill: skill.clone(),
+            name: name,
+            sex: sex.clone(),
+            age: d.age.gen(sex) as u8,
+            weight: d.weight.gen(sex) as u16,
+            height: d.height.gen(sex) as u16,
+            actions: (100, 100),
+            health: (100, 100),
+            veteran: (0, 100),
+            morale: (100, 100),
+            defense: (100, 100),
+            attack: (100, 100),
         }
     }
 
@@ -92,21 +92,21 @@ impl Soldier {
 
     pub fn specialty(&self) -> Specialty {
         self.skill.clone()
-    } 
+    }
 
-    pub fn health(&self) -> (u8,u8) {
+    pub fn health(&self) -> (u8, u8) {
         self.health
     }
 
-    pub fn morale(&self) -> (u8,u8) {
+    pub fn morale(&self) -> (u8, u8) {
         self.morale
     }
 
-    pub fn defense(&self) -> (u8,u8) {
+    pub fn defense(&self) -> (u8, u8) {
         self.defense
     }
 
-    pub fn attack(&self) -> (u8,u8) {
+    pub fn attack(&self) -> (u8, u8) {
         self.attack
     }
 }
@@ -127,14 +127,13 @@ pub struct Unit {
 }
 
 impl Unit {
-
     pub fn new() -> Self {
         Self {
             id: id::get(),
             marker: Marker {
-                layer: 0, 
-                texture: 0, 
-                position: (0,0).into(),
+                layer: 0,
+                texture: 0,
+                position: (0, 0).into(),
             },
             specialty: Specialty::Infantry,
             soldiers: vec![],
@@ -148,9 +147,7 @@ impl Unit {
 
     pub fn with_soldiers(mut self, count: usize) -> Self {
         for _ in 0..count {
-            self.soldiers.push(
-                Soldier::new(
-                    &self.specialty));
+            self.soldiers.push(Soldier::new(&self.specialty));
         }
         self
     }
@@ -165,10 +162,8 @@ impl Unit {
             .layers
             .get(&LayerUse::Units)
             .expect("Must have unit layer");
-            
-        self.marker.texture = state
-            .textures
-            .get("unit");
+
+        self.marker.texture = state.textures.get("unit");
 
         self
     }
@@ -191,7 +186,8 @@ impl Unit {
             .iter()
             .map(Soldier::actions)
             .map(|v| v as usize)
-            .sum::<usize>() / s.len();
+            .sum::<usize>()
+            / s.len();
         v.min(255) as u8
     }
 
@@ -201,7 +197,8 @@ impl Unit {
             .iter()
             .map(Soldier::max_actions)
             .map(|v| v as usize)
-            .sum::<usize>() / s.len();
+            .sum::<usize>()
+            / s.len();
         v.min(255) as u8
     }
 
@@ -211,16 +208,21 @@ impl Unit {
 
     pub fn specialty(&self) -> Specialty {
         self.specialty.clone()
-    }    
-
+    }
 }
 
 impl HasMarker for Unit {
-    fn marker(&self) -> &Marker { &self.marker }
+    fn marker(&self) -> &Marker {
+        &self.marker
+    }
 
-    fn marker_mut(&mut self) -> &mut Marker { &mut self.marker }
+    fn marker_mut(&mut self) -> &mut Marker {
+        &mut self.marker
+    }
 }
 
 impl HasId for Unit {
-    fn id(&self) -> &usize { &self.id }
+    fn id(&self) -> &usize {
+        &self.id
+    }
 }

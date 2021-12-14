@@ -1,64 +1,62 @@
 use bevy::input::keyboard::KeyboardInput;
-use bevy_tilemap::{Tilemap,Tile};
 use bevy::prelude::*;
+use bevy_tilemap::{Tile, Tilemap};
 
-use crate::state::{State,Action};
-use crate::generation::{LayerUse,Attribute};
+use crate::generation::{Attribute, LayerUse};
 use crate::resources::Spectrum;
+use crate::state::{Action, State};
 
 pub struct OverlayPlugin;
 
-fn overlay_setup_system(
-    mut state: ResMut<State>,
-) {
+fn overlay_setup_system(mut state: ResMut<State>) {
     if state.overlay.is_empty() {
         // https://hslpicker.com/#f600ff
 
         let biome = Spectrum::default()
-            .with_start_color(250.0/360.0,1.0,0.5,1.0)
-            .with_end_color(190.0/360.0,1.0,0.5,1.0)
+            .with_start_color(250.0 / 360.0, 1.0, 0.5, 1.0)
+            .with_end_color(190.0 / 360.0, 1.0, 0.5, 1.0)
             .finish();
 
         let soil = Spectrum::default()
-            .with_start_color(250.0/360.0,1.0,0.5,1.0)
-            .with_end_color(190.0/360.0,1.0,0.5,1.0)
+            .with_start_color(250.0 / 360.0, 1.0, 0.5, 1.0)
+            .with_end_color(190.0 / 360.0, 1.0, 0.5, 1.0)
             .finish();
 
         let elevation = Spectrum::default()
-            .with_start_color(250.0/360.0,1.0,0.5,1.0)
-            .with_end_color(190.0/360.0,1.0,0.5,1.0)
+            .with_start_color(250.0 / 360.0, 1.0, 0.5, 1.0)
+            .with_end_color(190.0 / 360.0, 1.0, 0.5, 1.0)
             .finish();
 
         let temperature = Spectrum::default()
-            .with_start_color(180.0/360.0,0.8,0.5,1.0)
-            .with_end_color(360.0/360.0,0.8,0.5,1.0)
+            .with_start_color(180.0 / 360.0, 0.8, 0.5, 1.0)
+            .with_end_color(360.0 / 360.0, 0.8, 0.5, 1.0)
             .finish();
 
         let fertility = Spectrum::default()
-            .with_start_color(20.0/360.0,1.0,0.5,1.0)
-            .with_end_color(120.0/360.0,1.0,0.5,1.0)
+            .with_start_color(20.0 / 360.0, 1.0, 0.5, 1.0)
+            .with_end_color(120.0 / 360.0, 1.0, 0.5, 1.0)
             .finish();
 
         let rocks = Spectrum::default()
-            .with_start_color(190.0/360.0,0.5,0.5,1.0)
-            .with_end_color(350.0/360.0,0.5,0.5,1.0)
+            .with_start_color(190.0 / 360.0, 0.5, 0.5, 1.0)
+            .with_end_color(350.0 / 360.0, 0.5, 0.5, 1.0)
             .finish();
 
         let moisture = Spectrum::default()
-            .with_start_color(170.0/360.0,1.0,0.5,1.0)
-            .with_end_color(240.0/360.0,1.0,0.5,1.0)
+            .with_start_color(170.0 / 360.0, 1.0, 0.5, 1.0)
+            .with_end_color(240.0 / 360.0, 1.0, 0.5, 1.0)
             .finish();
 
         let none = Spectrum::empty();
 
-        state.overlay.insert(Attribute::Biome,biome);
-        state.overlay.insert(Attribute::Soil,soil);
-        state.overlay.insert(Attribute::Elevation,elevation);
-        state.overlay.insert(Attribute::Temperature,temperature);
-        state.overlay.insert(Attribute::Fertility,fertility);
-        state.overlay.insert(Attribute::Rocks,rocks);
-        state.overlay.insert(Attribute::Moisture,moisture);
-        state.overlay.insert(Attribute::None,none);
+        state.overlay.insert(Attribute::Biome, biome);
+        state.overlay.insert(Attribute::Soil, soil);
+        state.overlay.insert(Attribute::Elevation, elevation);
+        state.overlay.insert(Attribute::Temperature, temperature);
+        state.overlay.insert(Attribute::Fertility, fertility);
+        state.overlay.insert(Attribute::Rocks, rocks);
+        state.overlay.insert(Attribute::Moisture, moisture);
+        state.overlay.insert(Attribute::None, none);
     }
 }
 
@@ -83,35 +81,35 @@ fn overlay_update_system(
         use KeyCode::*;
         if let Some(key) = e.key_code {
             match key {
-                Key0 | Escape  => {
+                Key0 | Escape => {
                     state.terrain.overlay = Attribute::None;
                     key_pressed = true;
                 }
-                Key1  => {
+                Key1 => {
                     state.terrain.overlay = Attribute::Biome;
                     key_pressed = true;
                 }
-                Key2  => {
+                Key2 => {
                     state.terrain.overlay = Attribute::Soil;
                     key_pressed = true;
                 }
-                Key3  => {
+                Key3 => {
                     state.terrain.overlay = Attribute::Elevation;
                     key_pressed = true;
                 }
-                Key4  => {
+                Key4 => {
                     state.terrain.overlay = Attribute::Temperature;
                     key_pressed = true;
                 }
-                Key5  => {
+                Key5 => {
                     state.terrain.overlay = Attribute::Fertility;
                     key_pressed = true;
                 }
-                Key6  => {
+                Key6 => {
                     state.terrain.overlay = Attribute::Rocks;
                     key_pressed = true;
                 }
-                Key7  => {
+                Key7 => {
                     state.terrain.overlay = Attribute::Moisture;
                     key_pressed = true;
                 }
@@ -128,23 +126,23 @@ fn overlay_update_system(
             let mut tiles = vec![];
             let mut points = vec![];
 
-            let i = state.layers
+            let i = state
+                .layers
                 .get(&LayerUse::Overlay)
                 .expect("Must have overlay layer");
-    
+
             for y in 0..height {
                 for x in 0..width {
                     let y = y - height / 2;
                     let x = x - width / 2;
-    
-                    let point = (x,y);
+
+                    let point = (x, y);
 
                     // get the attribute value
                     let feature = match state.terrain.overlay {
                         Attribute::None => 0.0,
-                        _ => state.get_attribute(&point,&state.terrain.overlay),
+                        _ => state.get_attribute(&point, &state.terrain.overlay),
                     };
-
 
                     // get the color from the overlay spectrum
                     let overlay = match state.terrain.overlay {
@@ -158,7 +156,7 @@ fn overlay_update_system(
                         Attribute::None => state.get_texture(&point),
                         _ => state.textures.get("blank"),
                     };
-    
+
                     tiles.push(Tile {
                         point: point,
                         sprite_order: i,
@@ -166,30 +164,28 @@ fn overlay_update_system(
                         tint: overlay,
                     });
 
-                    points.push((point,i));
+                    points.push((point, i));
                 }
             }
-    
+
             if let Err(e) = tilemap.clear_tiles(points) {
-                log::warn!("{:?}",e);
+                log::warn!("{:?}", e);
             }
 
             if state.terrain.overlay != Attribute::None {
                 if let Err(e) = tilemap.insert_tiles(tiles) {
-                    log::warn!("{:?}",e);
+                    log::warn!("{:?}", e);
                 }
             }
-            
+
             state.events.clear(Action::UpdateOverlay);
         }
     }
-
 }
 
 impl Plugin for OverlayPlugin {
-	fn build(&self, app: &mut AppBuilder) {
-        app
-            .add_startup_system(overlay_setup_system.system())
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_system(overlay_setup_system.system())
             .add_system(overlay_update_system.system());
-	}
+    }
 }

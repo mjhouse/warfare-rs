@@ -17,8 +17,8 @@ rand = "0.8.4"
 rand_distr = "0.4.2"
 noise = "0.7.0"
 
-# high performance hashset
-hashbrown = "0.11.2"
+# ordered hashmap for unit position
+indexmap = "1.7.0"
 
 # logging and error handling
 log = "0.4.14"

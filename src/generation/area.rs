@@ -1,19 +1,19 @@
-use bevy_tilemap::{Tile,point::Point3};
 use bevy::prelude::Color;
+use bevy_tilemap::{point::Point3, Tile};
 
-use crate::generation::{Soil,Biome,id};
+use crate::generation::{id, Biome, Soil};
 use crate::objects::Location;
 
-use std::fmt::{Display,Formatter,Result,Debug};
+use std::fmt::{Debug, Display, Formatter, Result};
 
 pub mod bounds {
     pub const MAX_ELEV: f32 = 4000.0;
     pub const MIN_ELEV: f32 = 0000.0;
-    pub const MAX_TEMP: f32 =  50.0;
+    pub const MAX_TEMP: f32 = 50.0;
     pub const MIN_TEMP: f32 = -40.0;
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Attribute {
     None,
     Biome,
@@ -26,7 +26,9 @@ pub enum Attribute {
 }
 
 impl Default for Attribute {
-    fn default() -> Self { Self::None }
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Display for Attribute {
@@ -35,7 +37,7 @@ impl Display for Attribute {
     }
 }
 
-#[derive(Debug,Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Area {
     /// A unique id for each tile
     id: usize,
@@ -83,42 +85,42 @@ impl Area {
         self.textures = v;
         self
     }
-    
+
     pub fn with_location(mut self, v: Location) -> Self {
         self.location = v;
         self
     }
-    
+
     pub fn with_biome(mut self, v: Biome) -> Self {
         self.biome = v;
         self
     }
-    
+
     pub fn with_soil(mut self, v: Soil) -> Self {
         self.soil = v;
         self
     }
-    
+
     pub fn with_moisture<T: Into<u8>>(mut self, v: T) -> Self {
         self.moisture = v.into();
         self
     }
-    
+
     pub fn with_rocks<T: Into<u8>>(mut self, v: T) -> Self {
         self.rocks = v.into();
         self
     }
-    
+
     pub fn with_fertility<T: Into<u8>>(mut self, v: T) -> Self {
         self.fertility = v.into();
         self
     }
-    
+
     pub fn with_elevation<T: Into<f32>>(mut self, v: T) -> Self {
         self.elevation = v.into();
         self
     }
-    
+
     pub fn with_temperature<T: Into<f32>>(mut self, v: T) -> Self {
         self.temperature = v.into();
         self
@@ -132,25 +134,17 @@ impl Area {
     pub fn build(mut self) -> Self {
         use bounds::*;
 
-        self.moisture = self.moisture
-            .min(100);
-            
-        self.rocks = self.rocks
-            .min(100);
+        self.moisture = self.moisture.min(100);
 
-        self.fertility = self.fertility
-            .min(100);
+        self.rocks = self.rocks.min(100);
 
-        self.impedance = self.impedance
-            .min(100);
+        self.fertility = self.fertility.min(100);
 
-        self.elevation = self.elevation
-            .min(MAX_ELEV)
-            .max(MIN_ELEV);
+        self.impedance = self.impedance.min(100);
 
-        self.temperature = self.temperature
-            .min(MAX_TEMP)
-            .max(MIN_TEMP);
+        self.elevation = self.elevation.min(MAX_ELEV).max(MIN_ELEV);
+
+        self.temperature = self.temperature.min(MAX_TEMP).max(MIN_TEMP);
 
         assert!(self.textures.len() > 0);
 
@@ -206,16 +200,15 @@ impl Area {
         self.textures
             .iter()
             .enumerate()
-            .map(|(i,t)| Tile {
+            .map(|(i, t)| Tile {
                 point: self.location.into(),
                 sprite_order: i,
                 sprite_index: *t,
                 tint: Color::WHITE,
-            }).collect()
+            })
+            .collect()
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {

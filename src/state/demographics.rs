@@ -1,28 +1,27 @@
-use rand_distr::{Normal, Distribution, WeightedIndex};
 use crate::objects::NameGenerator;
+use rand_distr::{Distribution, Normal, WeightedIndex};
 
 macro_rules! weighted {
     ( $weights:expr ) => {
-        WeightedIndex::new($weights)
-            .expect("Could not make WeightedIndex")
-    }
+        WeightedIndex::new($weights).expect("Could not make WeightedIndex")
+    };
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Sex {
     Male,
     Female,
 }
 
 pub struct Demographics {
-    pub name:   NameGenerator,
-    pub sex:    Division<'static,Sex>,
-    pub age:    Demographic,
+    pub name: NameGenerator,
+    pub sex: Division<'static, Sex>,
+    pub age: Demographic,
     pub weight: Demographic,
     pub height: Demographic,
 }
 
-pub struct Division<'a,T> {
+pub struct Division<'a, T> {
     weights: &'a [f32],
     results: &'a [T],
 }
@@ -33,18 +32,17 @@ pub struct Variation {
 }
 
 pub struct Demographic {
-    min:    f32,
-    max:    f32,
-    male:   Variation,
+    min: f32,
+    max: f32,
+    male: Variation,
     female: Variation,
 }
 
-impl<T> Division<'_,T> {
+impl<T> Division<'_, T> {
     pub fn gen(&self) -> &T {
-        self.results.get(
-            weighted!(self.weights)
-                .sample(&mut rand::thread_rng()))
-                    .expect("Weight/result mismatch")
+        self.results
+            .get(weighted!(self.weights).sample(&mut rand::thread_rng()))
+            .expect("Weight/result mismatch")
     }
 }
 
@@ -57,37 +55,37 @@ impl Demographic {
         // geanerate
         match sex {
             Sex::Male => self.male.gen(),
-            Sex::Female => self.female.gen()}
-        .clamp(min,max)
+            Sex::Female => self.female.gen(),
+        }
+        .clamp(min, max)
         .round() as u32
     }
 }
 
 impl Variation {
     pub fn gen(&self) -> f32 {
-        let d = Normal::new(self.mean,self.stdv)
-            .expect("Could not create normal distribution");
+        let d = Normal::new(self.mean, self.stdv).expect("Could not create normal distribution");
         d.sample(&mut rand::thread_rng())
     }
 }
 
-// normal distributions: 
+// normal distributions:
 //      https://www.simplypsychology.org/normal-distribution.html
-// height:               
+// height:
 //      https://ourworldindata.org/human-height
 //      https://dhoroty.applebutterexpress.com/what-is-standard-deviation-height
-// weight:               
+// weight:
 //      https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf
 //          (std-dev calculated from (std_error) * sqrt(sample_size))
-// military:             
+// military:
 //      https://www.cfr.org/backgrounder/demographics-us-military
 impl Default for Demographics {
     fn default() -> Self {
         Self {
             name: NameGenerator::new(),
             sex: Division {
-                weights: &[0.8,0.2],
-                results: &[Sex::Male,Sex::Female],
+                weights: &[0.8, 0.2],
+                results: &[Sex::Male, Sex::Female],
             },
             age: Demographic {
                 min: 18.,
@@ -141,7 +139,7 @@ mod tests {
         let mut female = 0;
         for _ in 0..100 {
             match demographics.sex.gen() {
-                Sex::Male   => male   += 1,
+                Sex::Male => male += 1,
                 Sex::Female => female += 1,
             };
         }
@@ -193,5 +191,4 @@ mod tests {
             // dbg!(height);
         }
     }
-
 }

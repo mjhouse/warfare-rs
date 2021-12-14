@@ -1,11 +1,11 @@
-use bevy::input::mouse::{MouseButton};
-use bevy_tilemap::Tilemap;
+use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
+use bevy_tilemap::Tilemap;
 
-use crate::state::{State,Action,traits::*};
-use crate::generation::{LayerUse};
-use crate::systems::camera::Camera;
+use crate::generation::LayerUse;
 use crate::math::MidRound;
+use crate::state::{traits::*, Action, State};
+use crate::systems::camera::Camera;
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -13,20 +13,20 @@ pub struct SelectionPlugin;
 pub struct Selection {
     /// the position of the pointer
     pub position: Vec2,
-    
+
     /// the position of the hovered tile
-    pub hovered: (i32,i32),
-    
+    pub hovered: (i32, i32),
+
     /// false if pointer is over ui
     pub hovering: bool,
 
     /// the position of the selected tile
-    pub selected: (i32,i32),
-    
-    /// the position of the active unit
-    pub unit: Option<(i32,i32)>,
+    pub selected: (i32, i32),
 
-    pub start: Option<(i32,i32)>,
+    /// the position of the active unit
+    pub unit: Option<(i32, i32)>,
+
+    pub start: Option<(i32, i32)>,
 
     pub actions: Option<i32>,
 
@@ -34,7 +34,7 @@ pub struct Selection {
     pub path: Vec<Point>,
 
     /// the button that triggers selection
-	pub button: MouseButton,
+    pub button: MouseButton,
 
     pub interacting: bool,
 }
@@ -46,20 +46,20 @@ impl Selection {
 }
 
 impl Default for Selection {
-	fn default() -> Self {
-		Self {
+    fn default() -> Self {
+        Self {
             position: Vec2::ZERO,
-            hovered: (0,0),
+            hovered: (0, 0),
             hovering: false,
-            selected: (0,0),
+            selected: (0, 0),
             unit: None,
             start: None,
             actions: None,
             path: vec![],
             button: MouseButton::Left,
             interacting: false,
-		}
-	}
+        }
+    }
 }
 
 /// Find the current position of the mouse cursor
@@ -68,8 +68,7 @@ fn selected_position_system(
     state: ResMut<State>,
     windows: Res<Windows>,
     camera: Query<&Transform, With<Camera>>,
-	mut query: Query<&mut Selection>,
-    
+    mut query: Query<&mut Selection>,
 ) {
     if !state.loaded {
         return;
@@ -100,16 +99,16 @@ fn selected_position_system(
         let x = world_position.x;
         let y = world_position.y;
 
-        selection.position = Vec2::new(x,y);
+        selection.position = Vec2::new(x, y);
     }
 }
 
-/// Find the hovered tile when the mouse cursor moves 
+/// Find the hovered tile when the mouse cursor moves
 /// and update the selection.
 fn selected_hovered_system(
     state: ResMut<State>,
     windows: Res<Windows>,
-	mut sel_query: Query<&mut Selection>,
+    mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
     if !state.loaded {
@@ -130,10 +129,8 @@ fn selected_hovered_system(
 
     if window.cursor_position().is_some() {
         // cache the position of the hovered tile
-        selection.hovered = Point::from_global(
-            selection.position.x,
-            selection.position.y
-        ).integers();
+        selection.hovered =
+            Point::from_global(selection.position.x, selection.position.y).integers();
     }
 }
 
@@ -141,7 +138,7 @@ fn selected_highlight_system(
     mut state: ResMut<State>,
     windows: Res<Windows>,
     inputs: Res<Input<MouseButton>>,
-	mut sel_query: Query<&mut Selection>,    
+    mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
     if !state.loaded {
@@ -166,8 +163,8 @@ fn selected_highlight_system(
             selection.selected = selection.hovered;
             if let Some(area) = state.areas.get(&selection.selected) {
                 state.terrain.selected = area.clone();
-                if let Err(e) = state.cursor.moveto(&mut map,selection.selected.into()){
-                    log::warn!("{:?}",e);
+                if let Err(e) = state.cursor.moveto(&mut map, selection.selected.into()) {
+                    log::warn!("{:?}", e);
                 }
                 state.events.send(Action::SelectionChanged);
             }
@@ -178,7 +175,7 @@ fn selected_highlight_system(
     let mut clear = true;
     if window.cursor_position().is_some() {
         if inputs.pressed(selection.button) {
-            if state.has_unit(&selection.selected){
+            if state.has_unit(&selection.selected) {
                 if selection.unit.is_none() {
                     selection.unit = Some(selection.selected);
                     selection.start = Some(selection.selected);
@@ -193,12 +190,13 @@ fn selected_highlight_system(
             if let Some(_) = selection.start {
                 if !selection.path.is_empty() {
                     let layer = state.layers.max(&LayerUse::Selection).unwrap();
-                    let path: Vec<((i32,i32),usize)> = selection.path
+                    let path: Vec<((i32, i32), usize)> = selection
+                        .path
                         .iter()
-                        .map(|p| (p.integers(),layer))
+                        .map(|p| (p.integers(), layer))
                         .collect();
                     if let Err(e) = map.clear_tiles(path) {
-                        log::warn!("{:?}",e);
+                        log::warn!("{:?}", e);
                     }
                 }
                 selection.start = None;
@@ -215,15 +213,13 @@ fn selected_highlight_system(
 }
 
 impl Plugin for SelectionPlugin {
-	fn build(&self, app: &mut AppBuilder) {
-        app.add_system(selected_position_system.system());  // get world position of pointer
-        app.add_system(selected_hovered_system.system());   // convert world position to hovered tile
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system(selected_position_system.system()); // get world position of pointer
+        app.add_system(selected_hovered_system.system()); // convert world position to hovered tile
         app.add_system(selected_highlight_system.system()); // highlight hovered tile on click
-	}
+    }
 }
 
 pub fn setup(mut commands: Commands) {
-	commands
-		.spawn()
-		.insert(Selection::default());
+    commands.spawn().insert(Selection::default());
 }

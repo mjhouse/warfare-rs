@@ -1,4 +1,4 @@
-use crate::generation::{Biome,Soil};
+use crate::generation::{Biome, Soil};
 
 // TODO: add Debug
 #[derive(Clone)]

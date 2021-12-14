@@ -6,8 +6,8 @@ use bevy::{
 
 use bevy_tilemap::prelude::*;
 
-use crate::state::{State,Action,Context,traits::*};
-use crate::generation::{Generator,LayerUse,Area};
+use crate::generation::{Area, Generator, LayerUse};
+use crate::state::{traits::*, Action, Context, State};
 
 pub struct GeneratorPlugin;
 
@@ -22,16 +22,16 @@ fn generate(state: &mut State, width: i32, height: i32) -> Vec<Area> {
             let y = y - height / 2;
             let x = x - width / 2;
 
-            let location = (x,y);
-            let biome = gen.biome(x,y);
-            let soil = gen.soil(x,y);
-            let moisture = gen.moisture(x,y);
-            let rocks = gen.rockiness(x,y);
-            let fertility = gen.fertility(x,y);
-            let elevation = gen.elevation(x,y);
-            let temperature = gen.temperature(x,y);
-            let impedance = gen.impedance(x,y);
-            let textures = gen.textures(tex,x,y);
+            let location = (x, y);
+            let biome = gen.biome(x, y);
+            let soil = gen.soil(x, y);
+            let moisture = gen.moisture(x, y);
+            let rocks = gen.rockiness(x, y);
+            let fertility = gen.fertility(x, y);
+            let elevation = gen.elevation(x, y);
+            let temperature = gen.temperature(x, y);
+            let impedance = gen.impedance(x, y);
+            let textures = gen.textures(tex, x, y);
 
             let area = Area::create()
                 .with_textures(textures)
@@ -69,10 +69,10 @@ fn generator_initialize_system(
                 let texture = textures.get(handle).unwrap();
                 texture_atlas_builder.add_texture(handle.clone_weak().typed::<Texture>(), &texture);
             }
-    
+
             let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
             let atlas_handle = texture_atlases.add(texture_atlas);
-    
+
             let context = Context::clone();
             let width = context.width;
             let height = context.height;
@@ -82,17 +82,22 @@ fn generator_initialize_system(
             let mut builder = Tilemap::builder()
                 .topology(GridTopology::HexOddRows)
                 .dimensions(1, 1)
-                .chunk_dimensions(width,height, 1)
+                .chunk_dimensions(width, height, 1)
                 .texture_atlas(atlas_handle)
-                .texture_dimensions(tile_width,tile_height);
+                .texture_dimensions(tile_width, tile_height);
 
-            for (i,(kind,_)) in state.layers.data().iter().cloned().enumerate() {
+            for (i, (kind, _)) in state.layers.data().iter().cloned().enumerate() {
                 builder = builder.add_layer(
-                    TilemapLayer { kind, ..Default::default() }, i );
+                    TilemapLayer {
+                        kind,
+                        ..Default::default()
+                    },
+                    i,
+                );
             }
-                
+
             let tilemap = builder.finish().unwrap();
-    
+
             let tilemap_components = TilemapBundle {
                 tilemap,
                 visible: Visible {
@@ -102,12 +107,12 @@ fn generator_initialize_system(
                 transform: Default::default(),
                 global_transform: Default::default(),
             };
-    
+
             commands
                 .spawn()
                 .insert_bundle(tilemap_components)
                 .insert(Timer::from_seconds(0.075, true));
-    
+
             state.textures.loaded = true;
         }
     }
@@ -122,7 +127,6 @@ fn generator_configure_system(
     // check if update is requested for terrain generation
     if state.events.receive(Action::UpdateTerrain) {
         if let Ok(mut map) = map_query.single_mut() {
-
             // get texture atlas that contains loaded tile textures
             let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
 
@@ -139,7 +143,7 @@ fn generator_configure_system(
 
             // get icons (tile textures), the user-provided seed for the map,
             // and the user-provided factors for each tile attribute.
-            state.textures.load(&asset_server,&texture_atlas);
+            state.textures.load(&asset_server, &texture_atlas);
 
             let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
 
@@ -147,16 +151,12 @@ fn generator_configure_system(
             let calendar = state.calendar.clone();
 
             // create a map generator
-            state.generator = Generator::new(
-                seed,
-                width,
-                height,
-                factors,
-                calendar);
+            state.generator = Generator::new(seed, width, height, factors, calendar);
 
             // generate map
-            let areas = generate(&mut state,width,height);
-            let max = state.layers
+            let areas = generate(&mut state, width, height);
+            let max = state
+                .layers
                 .max(&LayerUse::Tilemap)
                 .expect("Must have a tilemap layer");
 
@@ -169,10 +169,7 @@ fn generator_configure_system(
 
             state.tiles = tiles
                 .iter()
-                .map(|t| (
-                    t.point.into(),
-                    t.sprite_order,
-                ))
+                .map(|t| (t.point.into(), t.sprite_order))
                 .collect();
 
             // update state
@@ -190,30 +187,29 @@ fn generator_configure_system(
             state.events.clear(Action::UpdateTerrain);
 
             // update selection marker
-            let t = state.textures
-                .get("marker");
+            let t = state.textures.get("marker");
 
-            let l = state.layers
+            let l = state
+                .layers
                 .get(&LayerUse::Selection)
                 .expect("Must have selection layer");
 
-            if let Err(e) = state.cursor.remove(&mut map){
-                log::warn!("{:?}",e);
+            if let Err(e) = state.cursor.remove(&mut map) {
+                log::warn!("{:?}", e);
             }
             *state.cursor.texture_mut() = t;
             *state.cursor.layer_mut() = l;
 
-            if let Err(e) = state.cursor.insert(&mut map){
-                log::warn!("{:?}",e);
+            if let Err(e) = state.cursor.insert(&mut map) {
+                log::warn!("{:?}", e);
             }
         }
     }
 }
 
 impl Plugin for GeneratorPlugin {
-	fn build(&self, app: &mut AppBuilder) {
-        app
-            .add_system(generator_initialize_system.system())
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system(generator_initialize_system.system())
             .add_system(generator_configure_system.system());
-	}
+    }
 }

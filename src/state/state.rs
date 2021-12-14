@@ -1,32 +1,19 @@
-use std::collections::hash_map::HashMap;
 use bevy_tilemap::point::Point3;
 use once_cell::sync::Lazy;
+use std::collections::hash_map::HashMap;
 use std::sync::Mutex;
 
-use crate::objects::Point;
 use crate::objects::Location;
-use crate::resources::{Spectrum,Textures};
+use crate::objects::Point;
+use crate::resources::{Spectrum, Textures};
 
-use crate::state::{
-    Events,
-    Calendar,
-    traits::*,
-};
+use crate::state::{traits::*, Calendar, Events};
 
-use crate::generation::{
-    bounds,
-    Area,
-    Attribute,
-    Factors,
-    Generator,
-    Layers,
-    Unit,
-    Cursor,
-};
+use crate::generation::{bounds, Area, Attribute, Cursor, Factors, Generator, Layers, Unit};
 
 static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Context {
     pub width: u32,
     pub height: u32,
@@ -57,13 +44,13 @@ pub struct State {
     pub generator: Generator,
 
     /// current selection of areas
-    pub areas: HashMap<Location,Area>,
+    pub areas: HashMap<Location, Area>,
 
     /// current points and layers of graphics
-    pub tiles: Vec<(Point3,usize)>,
+    pub tiles: Vec<(Point3, usize)>,
 
     /// available overlay displays
-    pub overlay: HashMap<Attribute,Spectrum>,
+    pub overlay: HashMap<Attribute, Spectrum>,
 
     /// terrain flags and information
     pub terrain: Terrain,
@@ -115,10 +102,18 @@ impl Default for State {
 }
 
 macro_rules! context {
-    () => { CONTEXT.lock().expect("Could not lock context") }
+    () => {
+        CONTEXT.lock().expect("Could not lock context")
+    };
 }
 
 impl Context {
+    pub fn total() -> usize {
+        let c = context!();
+        c.width as usize * 
+        c.height as usize
+    }
+
     pub fn width() -> u32 {
         context!().width
     }
@@ -135,16 +130,14 @@ impl Context {
         context!().tile_height
     }
 
-    pub fn size() -> (i32,i32) {
+    pub fn size() -> (i32, i32) {
         let c = context!();
-        ( c.width  as i32, 
-          c.height as i32)
+        (c.width as i32, c.height as i32)
     }
 
-    pub fn tile_size() -> (i32,i32) {
+    pub fn tile_size() -> (i32, i32) {
         let c = context!();
-        ( c.tile_width  as i32, 
-          c.tile_height as i32)
+        (c.tile_width as i32, c.tile_height as i32)
     }
 
     pub fn clone() -> Context {
@@ -164,14 +157,13 @@ impl Context {
     }
 
     pub fn init(w: u32, h: u32, tw: u32, th: u32) -> Context {
-        Self::set_size(w,h);
-        Self::set_tile_size(tw,th);
+        Self::set_size(w, h);
+        Self::set_tile_size(tw, th);
         Self::clone()
     }
 }
 
 impl State {
-
     pub fn end_turn(&mut self) {
         self.calendar.advance();
         for unit in self.units.iter_mut() {
@@ -179,15 +171,15 @@ impl State {
         }
     }
 
-    pub fn impedance_map(&self) -> HashMap<Point,f32> {
+    pub fn impedance_map(&self) -> HashMap<Point, f32> {
         self.areas
             .iter()
-            .map(|(l,a)| (Point::from(*l),a.impedance() as f32))
+            .map(|(l, a)| (Point::from(*l), a.impedance() as f32))
             .collect()
     }
 
     pub fn add(&mut self, area: Area) {
-        self.areas.insert(area.location(),area);
+        self.areas.insert(area.location(), area);
     }
 
     pub fn add_all(&mut self, areas: Vec<Area>) {
@@ -234,7 +226,7 @@ impl State {
                 Attribute::Moisture => self.moisture_scaled(a),
                 Attribute::None => 0.0,
             },
-            None => 0.0
+            None => 0.0,
         }
     }
 
