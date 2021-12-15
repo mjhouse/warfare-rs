@@ -24,15 +24,17 @@ fn control_place_system(
         let selection = sel_query.single_mut().expect("Need selection");
 
         if let Some(_) = state.areas.get(&selection.selected) {
+            let point: Point = selection.selected.into();
+            
             // add a unit to the map
             let unit = Unit::new()
                 .with_specialty(Specialty::Infantry)
                 .with_soldiers(100)
-                .with_position(selection.selected.into())
+                .with_position(point.clone())
                 .build(&state);
 
             unit.insert(&mut tilemap);
-            state.units.push(unit);
+            state.units.add(point,unit);
         }
 
         state.events.clear(Action::PlaceUnit);

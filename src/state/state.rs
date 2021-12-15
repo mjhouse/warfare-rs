@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 use crate::objects::Location;
 use crate::objects::Point;
+use crate::objects::Map;
 use crate::resources::{Spectrum, Textures};
 
 use crate::state::{traits::*, Calendar, Events};
@@ -65,7 +66,7 @@ pub struct State {
     pub calendar: Calendar,
 
     /// all units on the board
-    pub units: Vec<Unit>,
+    pub units: Map,
 
     pub cursor: Cursor,
 }
@@ -95,7 +96,7 @@ impl Default for State {
             loaded: Default::default(),
             events: Default::default(),
             calendar: Default::default(),
-            units: Default::default(),
+            units: Map::new(),
             cursor: Default::default(),
         }
     }
@@ -166,7 +167,7 @@ impl Context {
 impl State {
     pub fn end_turn(&mut self) {
         self.calendar.advance();
-        for unit in self.units.iter_mut() {
+        for unit in self.units.units_mut() {
             unit.reset_actions()
         }
     }
@@ -189,7 +190,7 @@ impl State {
     }
 
     pub fn has_unit(&self, location: &Location) -> bool {
-        for unit in self.units.iter() {
+        for unit in self.units.units() {
             if unit.position() == location {
                 return true;
             }
@@ -198,7 +199,7 @@ impl State {
     }
 
     pub fn find_unit(&mut self, location: &Location) -> Option<&mut Unit> {
-        for unit in self.units.iter_mut() {
+        for unit in self.units.units_mut() {
             if unit.position() == location {
                 return Some(unit);
             }

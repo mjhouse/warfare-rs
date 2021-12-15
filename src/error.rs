@@ -9,6 +9,15 @@ pub enum Error {
     #[error("Could not load texture")]
     TextureNotFound,
 
+    #[error("No units selected")]
+    NoSelection,
+
+    #[error("The target position was not found")]
+    TargetNotFound,
+
+    #[error("The target position is too small to hold the selection")]
+    TargetTooSmall,
+
     #[error("Tilemap operation failed")]
     TilemapError(#[from] bevy_tilemap::tilemap::TilemapError),
 }
