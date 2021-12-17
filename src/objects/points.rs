@@ -36,6 +36,7 @@ pub struct Axial;
 pub struct Cubic;
 
 type Index = i32;
+type Layer = usize;
 
 /// Marker trait only implemented for Offset,
 /// Axial and Cubic coordinates
@@ -356,6 +357,10 @@ impl Point<Offset> {
     pub fn from_index(i: Index) -> Point<Offset> {
         let (w, h) = Context::size();
         ((i % w) - (w / 2), (i / w) - (h / 2)).into()
+    }
+
+    pub fn tuple_index((i,l): (usize,Layer)) -> ((i32,i32),usize) {
+        (Self::from_index(i as i32).integers(),l)
     }
 
     /// https://www.gamedev.net/tutorials/programming/general-and-gameplay-programming/coordinates-in-hexagon-based-tile-maps-r1800/

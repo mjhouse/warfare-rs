@@ -18,6 +18,10 @@ pub trait HasPosition {
     fn position(&self) -> &Point;
 
     fn position_mut(&mut self) -> &mut Point;
+
+    fn set_position(&mut self, point: &Point) {
+        *(self.position_mut()) = *point;
+    }
 }
 
 pub trait HasLayer {

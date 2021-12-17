@@ -189,13 +189,8 @@ impl State {
         }
     }
 
-    pub fn has_unit(&self, location: &Location) -> bool {
-        for unit in self.units.units() {
-            if unit.position() == location {
-                return true;
-            }
-        }
-        false
+    pub fn has_unit(&self, point: &Point) -> bool {
+        self.units.count_units(point) > 0
     }
 
     pub fn find_unit(&mut self, location: &Location) -> Option<&mut Unit> {

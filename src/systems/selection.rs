@@ -23,10 +23,8 @@ pub struct Selection {
     /// the position of the selected tile
     pub selected: (i32, i32),
 
-    /// the position of the active unit
-    pub unit: Option<(i32, i32)>,
-
-    pub start: Option<(i32, i32)>,
+    // the position we're dragging to
+    pub dragging: (i32, i32),
 
     pub actions: Option<i32>,
 
@@ -52,8 +50,7 @@ impl Default for Selection {
             hovered: (0, 0),
             hovering: false,
             selected: (0, 0),
-            unit: None,
-            start: None,
+            dragging: (0, 0),
             actions: None,
             path: vec![],
             button: MouseButton::Left,
@@ -129,9 +126,83 @@ fn selected_hovered_system(
 
     if window.cursor_position().is_some() {
         // cache the position of the hovered tile
-        selection.hovered =
-            Point::from_global(selection.position.x, selection.position.y).integers();
+        let x = selection.position.x;
+        let y = selection.position.y;
+
+        let point = Point::from_global(x,y).integers();
+        
+        if state.areas.get(&point).is_some() {
+            selection.hovered = point;
+        }
     }
+}
+
+fn pathfind() {
+    // let impedance = state.impedance_map();
+
+    // let initial = state
+    //     .find_unit(&old_point)
+    //     .map(|u| u.actions())
+    //     .unwrap_or(0) as i32;
+
+    // let mut actions = initial;
+
+    // let start: Point = selection.start.unwrap_or(old_point).into();
+    // let end: Point = new_point.into();
+
+    // // find a path and shorten until actions
+    // // is negative (no more action points)
+    // let finder = Pathfinder::new(impedance, start.clone(), end.clone());
+
+    // let mut path = finder
+    //     .find_weighted()
+    //     .into_iter()
+    //     .filter(|(_, c)| {
+    //         actions -= (*c) as i32;
+    //         actions >= 0
+    //     })
+    //     .map(|(p, _)| p)
+    //     .collect::<Vec<Point>>();
+
+    // // if there is at least one point in the path,
+    // // then display the path and allow the unit to move.
+    // if let Some(end_point) = path.last().cloned() {
+    //     path = path.into_iter().filter(|&p| p != end_point).collect();
+
+    //     let points = selection
+    //         .path
+    //         .iter()
+    //         .map(|p| (p.integers(), layer))
+    //         .collect::<Vec<((i32, i32), usize)>>();
+
+    //     let tiles = path
+    //         .iter()
+    //         .map(|p| Tile {
+    //             point: p.integers(),
+    //             sprite_order: layer,
+    //             sprite_index: blank,
+    //             tint: Color::rgba(1., 1., 1., 0.25),
+    //         })
+    //         .collect::<Vec<Tile<(i32, i32)>>>();
+
+    //     if let Err(e) = tilemap.clear_tiles(points) {
+    //         log::warn!("{:?}", e);
+    //     }
+
+    //     if let Err(e) = tilemap.insert_tiles(tiles) {
+    //         log::warn!("{:?}", e);
+    //     }
+
+    //     selection.path = path;
+    //     selection.actions = Some(initial - actions.max(0));
+
+    //     if let Some(unit) = state.find_unit(&old_point) {
+    //         if let Err(e) = unit.moveto(&mut tilemap, end_point.clone()) {
+    //             log::warn!("{:?}", e);
+    //         }
+    //         selection.unit = Some(end_point.integers());
+    //     }
+    // }
 }
 
 fn selected_highlight_system(
@@ -157,59 +228,102 @@ fn selected_highlight_system(
         return;
     }
 
-    // update the selected tile and move the marker
     if window.cursor_position().is_some() {
-        if inputs.pressed(selection.button) && !selection.on_selected() {
+        // if the selection button has just been pressed, then select the
+        // top unit at the position
+        if inputs.just_pressed(selection.button) {
             selection.selected = selection.hovered;
-            if let Some(area) = state.areas.get(&selection.selected) {
-                state.terrain.selected = area.clone();
-                if let Err(e) = state.cursor.moveto(&mut map, selection.selected.into()) {
+            state.units.select_top(&selection.selected.into());
+        }
+        // if the selection button has just been released, then deselect
+        // whatever units are selected
+        else if inputs.just_released(selection.button) {
+            state.units.select_none();
+        }
+        // if the button is pressed (but not just-pressed) and the selection
+        // location is hovering over a new tile, then trigger dragging
+        else if inputs.pressed(selection.button)
+        {
+            if selection.dragging != selection.hovered && state.units.has_selection() {
+
+                if let Err(e) = state.units.update(&mut map,&selection.hovered.into()) {
                     log::warn!("{:?}", e);
                 }
-                state.events.send(Action::SelectionChanged);
+            }
+        }
+
+        selection.dragging = selection.hovered;
+
+        // move cursor to new location
+        if let Some(area) = state.areas.get(&selection.selected) {
+            state.terrain.selected = area.clone();
+            if let Err(e) = state.cursor.moveto(&mut map,selection.selected.into()) {
+                log::warn!("{:?}", e);
             }
         }
     }
 
-    // if player is dragging a selected unit, update it
-    let mut clear = true;
-    if window.cursor_position().is_some() {
-        if inputs.pressed(selection.button) {
-            if state.has_unit(&selection.selected) {
-                if selection.unit.is_none() {
-                    selection.unit = Some(selection.selected);
-                    selection.start = Some(selection.selected);
-                }
-            }
-            clear = false;
-        }
-    }
 
-    if clear {
-        if let Some(point) = selection.unit {
-            if let Some(_) = selection.start {
-                if !selection.path.is_empty() {
-                    let layer = state.layers.max(&LayerUse::Selection).unwrap();
-                    let path: Vec<((i32, i32), usize)> = selection
-                        .path
-                        .iter()
-                        .map(|p| (p.integers(), layer))
-                        .collect();
-                    if let Err(e) = map.clear_tiles(path) {
-                        log::warn!("{:?}", e);
-                    }
-                }
-                selection.start = None;
-            }
-            if let Some(unit) = state.find_unit(&point) {
-                if let Some(mut actions) = selection.actions {
-                    unit.use_actions(actions.max(0).min(255) as u8);
-                }
-                selection.actions = None;
-            }
-            selection.unit = None;
-        }
-    }
+
+
+
+
+
+
+
+    // // update the selected tile and move the marker
+    // if window.cursor_position().is_some() {
+    //     if inputs.pressed(selection.button) && !selection.on_selected() {
+    //         selection.selected = selection.hovered;
+    //         if let Some(area) = state.areas.get(&selection.selected) {
+    //             state.terrain.selected = area.clone();
+    //             if let Err(e) = state.cursor.moveto(&mut map, selection.selected.into()) {
+    //                 log::warn!("{:?}", e);
+    //             }
+    //             state.events.send(Action::SelectionChanged);
+    //         }
+    //     }
+    // }
+
+    // // if player is dragging a selected unit, update it
+    // let mut clear = true;
+    // if window.cursor_position().is_some() {
+    //     if inputs.pressed(selection.button) {
+    //         if state.has_unit(&selection.selected.into()) {
+    //             if selection.unit.is_none() {
+    //                 selection.unit = Some(selection.selected);
+    //                 selection.start = Some(selection.selected);
+    //             }
+    //         }
+    //         clear = false;
+    //     }
+    // }
+
+    // if clear {
+    //     if let Some(point) = selection.unit {
+    //         if let Some(_) = selection.start {
+    //             if !selection.path.is_empty() {
+    //                 let layer = state.layers.max(&LayerUse::Selection).unwrap();
+    //                 let path: Vec<((i32, i32), usize)> = selection
+    //                     .path
+    //                     .iter()
+    //                     .map(|p| (p.integers(), layer))
+    //                     .collect();
+    //                 if let Err(e) = map.clear_tiles(path) {
+    //                     log::warn!("{:?}", e);
+    //                 }
+    //             }
+    //             selection.start = None;
+    //         }
+    //         if let Some(unit) = state.find_unit(&point) {
+    //             if let Some(mut actions) = selection.actions {
+    //                 unit.use_actions(actions.max(0).min(255) as u8);
+    //             }
+    //             selection.actions = None;
+    //         }
+    //         selection.unit = None;
+    //     }
+    // }
 }
 
 impl Plugin for SelectionPlugin {

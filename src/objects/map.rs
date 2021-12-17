@@ -4,6 +4,10 @@ use crate::objects::Point;
 use crate::state::traits::HasId;
 use crate::state::Context;
 use crate::error::{Result,Error};
+use crate::state::traits::{HasPosition,AsTile,HasLayer};
+
+use bevy_tilemap::Tilemap;
+use bevy_tilemap::Tile;
 
 use indexmap::IndexMap;
 
@@ -49,9 +53,13 @@ impl Position {
         }
     }
 
+    pub fn count(&self) -> usize {
+        self.units.len()
+    }
+
     /// remaining space in this position
     pub fn space(&self) -> usize {
-        MAX.saturating_sub(self.units.len())
+        MAX.saturating_sub(self.count())
     }
 
     /// check if position is full
@@ -88,9 +96,9 @@ impl Position {
         self.units.shift_remove(&id)
     }
 
-    /// check if position contains unti
-    pub fn contains(&self, id: Id) -> bool {
-        self.units.contains_key(&id)
+    /// check if position contains unit
+    pub fn contains(&self, id: &Id) -> bool {
+        self.units.contains_key(id)
     }
 
     /// get a reference to the top unit
@@ -101,6 +109,11 @@ impl Position {
     /// get a reference to a particular unit
     pub fn id(&self, id: &Id) -> Option<&Unit> {
         self.units.get(id)
+    }
+
+    /// get a mutablereference to a particular unit
+    pub fn id_mut(&mut self, id: &Id) -> Option<&mut Unit> {
+        self.units.get_mut(id)
     }
 
     /// get references to multiple units
@@ -125,23 +138,43 @@ impl Map {
         self.selected.len()
     }
 
+    pub fn count_units(&self, point: &Point) -> usize {
+        self.get(point)
+            .map(|p| p.count())
+            .unwrap_or(0)
+    }
+
+    pub fn has_unit(&self, point: &Point, id: &Id) -> bool {
+        self.get(point)
+            .map(|p| p.contains(id))
+            .unwrap_or(false)
+    }
+
+    pub fn has_units(&self, point: &Point) -> bool {
+        self.count_units(point) > 0
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.selected.len() > 0
+    }
+
     pub fn select_none(&mut self) {
         self.selected.clear();
     }
 
-    pub fn select_top(&mut self, point: Point) {
+    pub fn select_top(&mut self, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
+            self.selected = vec![Selection::new(&point,unit)];
+        }
+    }
+
+    pub fn select_id(&mut self, point: &Point, id: Id) {
+        if let Some(unit) = self.get_id(point,&id) {
             self.selected.push(Selection::new(&point,unit));
         }
     }
 
-    pub fn select_id(&mut self, point: Point, id: Id) {
-        if let Some(unit) = self.get_id(&point,&id) {
-            self.selected.push(Selection::new(&point,unit));
-        }
-    }
-
-    pub fn select_ids(&mut self, point: Point, ids: Vec<Id>) {
+    pub fn select_ids(&mut self, point: &Point, ids: Vec<Id>) {
         self.selected
             .append(&mut self
                 .get_ids(&point,&ids)
@@ -168,18 +201,8 @@ impl Map {
             .unwrap_or(Vec::new())
     }
 
-    fn get_mut(&mut self, point: &Point) -> Option<&mut Position> {
-        let index = point.as_index() as usize;
-        self.positions.get_mut(index)
-    }
-
-    fn get(&self, point: &Point) -> Option<&Position> {
-        let index = point.as_index() as usize;
-        self.positions.get(index)
-    }
-
     /// move selection to a new position
-    pub fn move_selection(&mut self, point: &Point) -> Result<()> {
+    pub fn moveto(&mut self, point: &Point) -> Result<()> {
         let count = self.count();
         let space = self.get(point)
             .ok_or(Error::TargetNotFound)?
@@ -204,7 +227,11 @@ impl Map {
                 .get_mut(s.index)
                 .map(|p| p.take(s.id))
                 .flatten())
-            .collect();
+            .map(|mut u| {
+                u.set_position(point);
+                u
+            })
+            .collect::<Vec<Unit>>();
 
         // give units to new location
         if let Some(target) = self.get_mut(point) {
@@ -212,9 +239,54 @@ impl Map {
         }
 
         // update selection to the new position
-        self.selected
-            .iter_mut()
-            .map(|p| p.update(point));
+        for selection in self.selected.iter_mut() {
+            selection.update(point);
+        }
+
+        Ok(())
+    }
+
+    pub fn update(&mut self, map: &mut Tilemap, point: &Point) -> Result<()> {
+
+        let moved: Vec<(usize,usize)> = self
+            .selected
+            .iter()
+            .filter_map(|s| self
+                .get_unit(s)
+                .map(|u| (s.index,*u.layer())))
+            .collect();
+
+        self.moveto(point)?;
+
+        // get points for positions left empty
+        let points: Vec<((i32,i32),usize)> = moved
+            .into_iter()
+            .filter(|(i,l)| self.is_empty(i))
+            .map(Point::tuple_index)
+            .collect();
+
+        // remove empty tiles after move
+        if let Err(e) = map.clear_tiles(points) {
+            log::warn!("{:?}", e);
+        }
+
+        // get tiles for new unit positions
+        let mut after: Vec<Tile<_>> = self
+            .selected
+            .iter()
+            .filter_map(|s| self.get_unit(s))
+            .map(|u| u.as_tile())
+            .collect();
+        
+        // remove duplicate tiles
+        after.sort_by(|a,b| a.point.cmp(&b.point));
+        after.dedup();
+
+        // insert tiles after unit move
+        if let Err(e) = map.insert_tiles(after) {
+            log::warn!("{:?}", e);
+        }
+
 
         Ok(())
     }
@@ -237,8 +309,43 @@ impl Map {
 
     pub fn add(&mut self, point: Point, unit: Unit) {
         if let Some(target) = self.get_mut(&point) {
+            println!("-- adding unit at {:?}",point);
             target.give(unit);
         }
+    }
+
+    fn get(&self, point: &Point) -> Option<&Position> {
+        self.get_idx(point.as_index() as usize)
+    }
+
+    fn get_mut(&mut self, point: &Point) -> Option<&mut Position> {
+        self.get_idx_mut(point.as_index() as usize)
+    }
+
+    fn get_idx(&self, index: Index) -> Option<&Position> {
+        self.positions.get(index)
+    }
+
+    fn get_idx_mut(&mut self, index: Index) -> Option<&mut Position> {
+        self.positions.get_mut(index)
+    }
+
+    fn get_unit(&self, s: &Selection) -> Option<&Unit> {
+        self.get_idx(s.index)
+            .map(|p| p.id(&s.id))
+            .flatten()
+    }
+
+    fn get_unit_mut(&mut self, s: &Selection) -> Option<&mut Unit> {
+        self.get_idx_mut(s.index)
+            .map(|p| p.id_mut(&s.id))
+            .flatten()
+    }
+
+    fn is_empty(&self, i: &Index) -> bool {
+        self.get_idx(*i)
+            .map(|p| p.count() == 0)
+            .unwrap_or(false)
     }
 }
 
