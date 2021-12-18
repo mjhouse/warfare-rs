@@ -11,6 +11,10 @@ use bevy_tilemap::Tile;
 
 use indexmap::IndexMap;
 
+macro_rules! point {
+    ($i:expr) => { Point::from_index($i as i32) }
+}
+
 /// alias for map index position
 type Index = usize;
 
@@ -32,6 +36,7 @@ pub struct Position {
 pub struct Map {
     positions: Vec<Position>,
     selected: Vec<Selection>,
+    initial: Vec<Selection>,
 }
 
 impl Selection {
@@ -131,6 +136,7 @@ impl Map {
         Self {
             positions: vec![Position::new(); size],
             selected: vec![],
+            initial: vec![],
         }
     }
 
@@ -160,17 +166,20 @@ impl Map {
 
     pub fn select_none(&mut self) {
         self.selected.clear();
+        self.initial.clear();
     }
 
     pub fn select_top(&mut self, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
             self.selected = vec![Selection::new(&point,unit)];
+            self.initial = self.selected.clone();
         }
     }
 
     pub fn select_id(&mut self, point: &Point, id: Id) {
         if let Some(unit) = self.get_id(point,&id) {
             self.selected.push(Selection::new(&point,unit));
+            self.initial = self.selected.clone();
         }
     }
 
@@ -181,6 +190,56 @@ impl Map {
                 .iter()
                 .map(|u| Selection::new(&point,u))
                 .collect());
+        self.initial = self.selected.clone();
+    }
+
+    pub fn select_return(&mut self, map: &mut Tilemap) {
+        // get potentially empty tiles that will need 
+        // to be checked later to see if the token 
+        // should be removed.
+        let moved: Vec<(usize,usize)> = self
+            .selected
+            .iter()
+            .filter_map(|s| self
+                .get_unit(s)
+                .map(|u| (s.index,*u.layer())))
+            .collect();
+
+        let initial = self.initial.clone();
+
+        // move to each initial position and leave the
+        // unit that started there.
+        for p in initial.iter() {
+            self.moveto(&Point::from_index(p.index as i32));
+            self.selected.retain(|s| s.id != p.id);
+        }
+
+        // get points for positions left empty
+        let points: Vec<((i32,i32),usize)> = moved
+            .into_iter()
+            .filter(|(i,l)| self.is_empty(i))
+            .map(Point::tuple_index)
+            .collect();
+
+        // remove empty tiles after move
+        if let Err(e) = map.clear_tiles(points) {
+            log::warn!("{:?}", e);
+        }
+
+        let mut after: Vec<Tile<_>> = initial
+            .iter()
+            .filter_map(|s| self.get_unit(s))
+            .map(|u| u.as_tile())
+            .collect();
+
+        // remove duplicate tiles
+        after.sort_by(|a,b| a.point.cmp(&b.point));
+        after.dedup();
+
+        // insert tiles after unit move
+        if let Err(e) = map.insert_tiles(after) {
+            log::warn!("{:?}", e);
+        }
     }
 
     pub fn get_top(&self, point: &Point) -> Option<&Unit> {
@@ -201,7 +260,6 @@ impl Map {
             .unwrap_or(Vec::new())
     }
 
-    /// move selection to a new position
     pub fn moveto(&mut self, point: &Point) -> Result<()> {
         let count = self.count();
         let space = self.get(point)
@@ -291,6 +349,18 @@ impl Map {
         Ok(())
     }
 
+    pub fn routes(&self) -> Vec<(Id,Point,Point)> {
+        self.initial
+            .iter()
+            .map(|s| (s.id,point!(s.index)))
+            .filter_map(|(i,p)| self
+                .selected
+                .iter()
+                .find(|s| s.id == i)
+                .map(|s| (i,p,point!(s.index))))
+            .collect()
+    }
+
     pub fn units(&self) -> Vec<&Unit> {
         self.positions
             .iter()
@@ -309,7 +379,6 @@ impl Map {
 
     pub fn add(&mut self, point: Point, unit: Unit) {
         if let Some(target) = self.get_mut(&point) {
-            println!("-- adding unit at {:?}",point);
             target.give(unit);
         }
     }

@@ -6,14 +6,14 @@ pub type Weight = f32;
 pub type Score = f32;
 pub type Cost = f32;
 
-pub struct Pathfinder {
-    nodes: HashMap<Point, Cost>,
+pub struct Pathfinder<'a> {
+    nodes: &'a HashMap<Point, Cost>,
     start: Point,
     end: Point,
 }
 
-impl Pathfinder {
-    pub fn new(nodes: HashMap<Point, Cost>, start: Point, end: Point) -> Self {
+impl<'a> Pathfinder<'a> {
+    pub fn new(nodes: &'a HashMap<Point, Cost>, start: Point, end: Point) -> Self {
         Self { nodes, start, end }
     }
 

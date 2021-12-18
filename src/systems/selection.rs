@@ -1,11 +1,13 @@
 use bevy::input::mouse::MouseButton;
+use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
-use bevy_tilemap::Tilemap;
+use bevy_tilemap::{Tile, Tilemap};
 
 use crate::generation::LayerUse;
 use crate::math::MidRound;
 use crate::state::{traits::*, Action, State};
 use crate::systems::camera::Camera;
+use crate::behavior::Pathfinder;
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -34,6 +36,9 @@ pub struct Selection {
     /// the button that triggers selection
     pub button: MouseButton,
 
+    /// the key that cancels selection
+    pub release: KeyCode,
+
     pub interacting: bool,
 }
 
@@ -54,6 +59,7 @@ impl Default for Selection {
             actions: None,
             path: vec![],
             button: MouseButton::Left,
+            release: KeyCode::Escape,
             interacting: false,
         }
     }
@@ -209,6 +215,7 @@ fn selected_highlight_system(
     mut state: ResMut<State>,
     windows: Res<Windows>,
     inputs: Res<Input<MouseButton>>,
+    keyboard: Res<Input<KeyCode>>,
     mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
@@ -220,12 +227,23 @@ fn selected_highlight_system(
     let mut selection = sel_query.single_mut().expect("Need selection");
     let mut map = map_query.single_mut().expect("Need tilemap");
 
+    let layer = state
+        .layers
+        .max(&LayerUse::Selection)
+        .expect("Need selection layer");
+
+    let blank = state.textures.get("blank");
+
     if selection.interacting {
         return;
     }
 
     if !selection.hovering {
         return;
+    }
+
+    if keyboard.just_pressed(selection.release) && state.units.has_selection() {
+        state.units.select_return(&mut map);
     }
 
     if window.cursor_position().is_some() {
@@ -239,15 +257,80 @@ fn selected_highlight_system(
         // whatever units are selected
         else if inputs.just_released(selection.button) {
             state.units.select_none();
+
+            // clear out any old path graphics
+            if !selection.path.is_empty() {
+                let points = selection
+                    .path
+                    .iter()
+                    .map(|p| (p.integers(), layer))
+                    .collect::<Vec<((i32, i32), usize)>>();
+
+                if let Err(e) = map.clear_tiles(points) {
+                    log::warn!("{:?}", e);
+                }
+            }
         }
         // if the button is pressed (but not just-pressed) and the selection
         // location is hovering over a new tile, then trigger dragging
         else if inputs.pressed(selection.button)
         {
             if selection.dragging != selection.hovered && state.units.has_selection() {
-
                 if let Err(e) = state.units.update(&mut map,&selection.hovered.into()) {
                     log::warn!("{:?}", e);
+                }
+
+                let impedance = state.impedance_map();
+
+                // clear out any old path graphics
+                if !selection.path.is_empty() {
+                    let points = selection
+                        .path
+                        .iter()
+                        .map(|p| (p.integers(), layer))
+                        .collect::<Vec<((i32, i32), usize)>>();
+
+                    if let Err(e) = map.clear_tiles(points) {
+                        log::warn!("{:?}", e);
+                    }
+                }
+
+                for (id,start,end) in state.units.routes().into_iter() {
+
+                    let finder = Pathfinder::new(&impedance, start, end);
+                    
+                    let mut path = finder
+                        .find_weighted()
+                        .into_iter()
+                        .map(|(p, _)| p)
+                        .collect::<Vec<Point>>();
+
+                    // getting last also checks that there is at least one
+                    // position in the path
+                    if let Some(last) = path.last().cloned() {
+                        
+                        // get all but the last position
+                        path = path.into_iter().filter(|&p| p != last).collect();
+                        
+                        // build path tiles
+                        let tiles = path
+                            .iter()
+                            .map(|p| Tile {
+                                point: p.integers(),
+                                sprite_order: layer,
+                                sprite_index: blank,
+                                tint: Color::rgba(1., 1., 1., 0.25),
+                            })
+                            .collect::<Vec<Tile<(i32, i32)>>>();
+
+                        // insert partially tranparent tiles for path
+                        // into the tile map
+                        if let Err(e) = map.insert_tiles(tiles) {
+                            log::warn!("{:?}", e);
+                        }
+
+                        selection.path = path;
+                    }
                 }
             }
         }
@@ -263,67 +346,6 @@ fn selected_highlight_system(
         }
     }
 
-
-
-
-
-
-
-
-
-    // // update the selected tile and move the marker
-    // if window.cursor_position().is_some() {
-    //     if inputs.pressed(selection.button) && !selection.on_selected() {
-    //         selection.selected = selection.hovered;
-    //         if let Some(area) = state.areas.get(&selection.selected) {
-    //             state.terrain.selected = area.clone();
-    //             if let Err(e) = state.cursor.moveto(&mut map, selection.selected.into()) {
-    //                 log::warn!("{:?}", e);
-    //             }
-    //             state.events.send(Action::SelectionChanged);
-    //         }
-    //     }
-    // }
-
-    // // if player is dragging a selected unit, update it
-    // let mut clear = true;
-    // if window.cursor_position().is_some() {
-    //     if inputs.pressed(selection.button) {
-    //         if state.has_unit(&selection.selected.into()) {
-    //             if selection.unit.is_none() {
-    //                 selection.unit = Some(selection.selected);
-    //                 selection.start = Some(selection.selected);
-    //             }
-    //         }
-    //         clear = false;
-    //     }
-    // }
-
-    // if clear {
-    //     if let Some(point) = selection.unit {
-    //         if let Some(_) = selection.start {
-    //             if !selection.path.is_empty() {
-    //                 let layer = state.layers.max(&LayerUse::Selection).unwrap();
-    //                 let path: Vec<((i32, i32), usize)> = selection
-    //                     .path
-    //                     .iter()
-    //                     .map(|p| (p.integers(), layer))
-    //                     .collect();
-    //                 if let Err(e) = map.clear_tiles(path) {
-    //                     log::warn!("{:?}", e);
-    //                 }
-    //             }
-    //             selection.start = None;
-    //         }
-    //         if let Some(unit) = state.find_unit(&point) {
-    //             if let Some(mut actions) = selection.actions {
-    //                 unit.use_actions(actions.max(0).min(255) as u8);
-    //             }
-    //             selection.actions = None;
-    //         }
-    //         selection.unit = None;
-    //     }
-    // }
 }
 
 impl Plugin for SelectionPlugin {
