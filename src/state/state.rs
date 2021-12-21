@@ -193,13 +193,8 @@ impl State {
         self.units.count_units(point) > 0
     }
 
-    pub fn find_unit(&mut self, location: &Location) -> Option<&mut Unit> {
-        for unit in self.units.units_mut() {
-            if unit.position() == location {
-                return Some(unit);
-            }
-        }
-        None
+    pub fn find_units(&self, location: &Location) -> Vec<&Unit> {
+        self.units.get_units(&(*location).into())
     }
 
     pub fn get_texture(&self, loc: &Location) -> usize {

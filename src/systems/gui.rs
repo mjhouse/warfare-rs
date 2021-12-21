@@ -163,7 +163,9 @@ fn gui_display_system(
             .response
             .hovered();
 
-    if let Some(unit) = state.find_unit(&selection.selected) {
+    let units = state.find_units(&selection.selected);
+
+    if !units.is_empty() {
         if let Some(window) = egui::Window::new("Unit")
             .default_width(300.0)
             .default_height(200.0)
@@ -172,41 +174,47 @@ fn gui_display_system(
                 ui.set_width(ui.available_width());
                 ui.set_height(ui.available_height());
 
-                ui.separator();
-                ui.heading("Info");
-
-                ui.monospace(format!("ID:     {}", unit.id()));
-                ui.monospace(format!("Type:   {:?}", unit.specialty()));
-                ui.monospace(format!("AP:     {}", unit.actions()));
-                ui.monospace(format!("Max AP: {}", unit.max_actions()));
-
-                ui.separator();
-                ui.collapsing("Soldiers", |ui| {
-                    egui::ScrollArea::auto_sized().show(ui, |ui| {
-                        for soldier in unit.soldiers() {
-                            let (h, mh) = soldier.health();
-                            let (m, mm) = soldier.morale();
-                            let (d, md) = soldier.defense();
-                            let (a, ma) = soldier.attack();
-                            let p = soldier.actions();
-                            let mp = soldier.max_actions();
-
-                            ui.group(|ui| {
-                                ui.set_width(ui.available_width());
-                                ui.monospace(format!("  Name:    {}", soldier.name()));
-                                ui.monospace(format!("  Age:     {}", soldier.age()));
-                                ui.monospace(format!("  Sex:     {:?}", soldier.sex()));
-                                ui.monospace(format!("  Weight:  {}kg", soldier.weight()));
-                                ui.monospace(format!("  Height:  {}cm", soldier.height()));
-                                ui.monospace(format!("  AP:      {} / {}", p, mp));
-                                ui.monospace(format!("  HP:      {} / {}", h, mh));
-                                ui.monospace(format!("  Morale:  {} / {}", m, mm));
-                                ui.monospace(format!("  Defense: {} / {}", d, md));
-                                ui.monospace(format!("  Attack:  {} / {}", a, ma));
+                for unit in units.into_iter() {
+                    let name = format!("Unit {}",unit.id());
+                    ui.collapsing(name, |ui| {
+                        ui.separator();
+                        ui.heading("Info");
+        
+                        ui.monospace(format!("ID:     {}", unit.id()));
+                        ui.monospace(format!("Type:   {:?}", unit.specialty()));
+                        ui.monospace(format!("AP:     {}", unit.actions()));
+                        ui.monospace(format!("Max AP: {}", unit.max_actions()));
+        
+                        ui.separator();
+                        ui.collapsing("Soldiers", |ui| {
+                            egui::ScrollArea::from_max_height(400.)
+                                .show(ui, |ui| {
+                                for soldier in unit.soldiers() {
+                                    let (h, mh) = soldier.health();
+                                    let (m, mm) = soldier.morale();
+                                    let (d, md) = soldier.defense();
+                                    let (a, ma) = soldier.attack();
+                                    let p = soldier.actions();
+                                    let mp = soldier.max_actions();
+        
+                                    ui.group(|ui| {
+                                        ui.set_width(ui.available_width());
+                                        ui.monospace(format!("  Name:    {}", soldier.name()));
+                                        ui.monospace(format!("  Age:     {}", soldier.age()));
+                                        ui.monospace(format!("  Sex:     {:?}", soldier.sex()));
+                                        ui.monospace(format!("  Weight:  {}kg", soldier.weight()));
+                                        ui.monospace(format!("  Height:  {}cm", soldier.height()));
+                                        ui.monospace(format!("  AP:      {} / {}", p, mp));
+                                        ui.monospace(format!("  HP:      {} / {}", h, mh));
+                                        ui.monospace(format!("  Morale:  {} / {}", m, mm));
+                                        ui.monospace(format!("  Defense: {} / {}", d, md));
+                                        ui.monospace(format!("  Attack:  {} / {}", a, ma));
+                                    });
+                                }
                             });
-                        }
+                        });
                     });
-                });
+                }
 
                 // TODO: fix this bullshit
                 if let Some(mut p) = window.cursor_position() {

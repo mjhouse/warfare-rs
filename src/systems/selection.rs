@@ -43,8 +43,19 @@ pub struct Selection {
 }
 
 impl Selection {
-    pub fn on_selected(&self) -> bool {
-        self.selected == self.hovered
+    pub fn clear_path(&mut self, map: &mut Tilemap, layer: usize) {
+        // clear out any old path graphics
+        if !self.path.is_empty() {
+            let points = self
+                .path
+                .iter()
+                .map(|p| (p.integers(), layer))
+                .collect::<Vec<((i32, i32), usize)>>();
+
+            if let Err(e) = map.clear_tiles(points) {
+                log::warn!("{:?}", e);
+            }
+        }
     }
 }
 
@@ -257,81 +268,23 @@ fn selected_highlight_system(
         // whatever units are selected
         else if inputs.just_released(selection.button) {
             state.units.select_none();
-
-            // clear out any old path graphics
-            if !selection.path.is_empty() {
-                let points = selection
-                    .path
-                    .iter()
-                    .map(|p| (p.integers(), layer))
-                    .collect::<Vec<((i32, i32), usize)>>();
-
-                if let Err(e) = map.clear_tiles(points) {
-                    log::warn!("{:?}", e);
-                }
-            }
+            selection.clear_path(&mut map,layer);
         }
         // if the button is pressed (but not just-pressed) and the selection
         // location is hovering over a new tile, then trigger dragging
         else if inputs.pressed(selection.button)
         {
             if selection.dragging != selection.hovered && state.units.has_selection() {
-                if let Err(e) = state.units.update(&mut map,&selection.hovered.into()) {
-                    log::warn!("{:?}", e);
-                }
-
                 let impedance = state.impedance_map();
-
-                // clear out any old path graphics
-                if !selection.path.is_empty() {
-                    let points = selection
-                        .path
-                        .iter()
-                        .map(|p| (p.integers(), layer))
-                        .collect::<Vec<((i32, i32), usize)>>();
-
-                    if let Err(e) = map.clear_tiles(points) {
-                        log::warn!("{:?}", e);
-                    }
-                }
-
-                for (id,start,end) in state.units.routes().into_iter() {
-
-                    let finder = Pathfinder::new(&impedance, start, end);
-                    
-                    let mut path = finder
-                        .find_weighted()
-                        .into_iter()
-                        .map(|(p, _)| p)
-                        .collect::<Vec<Point>>();
-
-                    // getting last also checks that there is at least one
-                    // position in the path
-                    if let Some(last) = path.last().cloned() {
-                        
-                        // get all but the last position
-                        path = path.into_iter().filter(|&p| p != last).collect();
-                        
-                        // build path tiles
-                        let tiles = path
-                            .iter()
-                            .map(|p| Tile {
-                                point: p.integers(),
-                                sprite_order: layer,
-                                sprite_index: blank,
-                                tint: Color::rgba(1., 1., 1., 0.25),
-                            })
-                            .collect::<Vec<Tile<(i32, i32)>>>();
-
-                        // insert partially tranparent tiles for path
-                        // into the tile map
-                        if let Err(e) = map.insert_tiles(tiles) {
-                            log::warn!("{:?}", e);
-                        }
-
-                        selection.path = path;
-                    }
-                }
+                
+                selection.clear_path(&mut map,layer);
+                selection.path = state.units.pathto(
+                    &mut map,
+                    &impedance,
+                    &selection.hovered.into(),
+                    layer,
+                    blank
+                );
             }
         }
 
