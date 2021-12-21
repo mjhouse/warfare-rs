@@ -255,6 +255,7 @@ fn selected_highlight_system(
 
     if keyboard.just_pressed(selection.release) && state.units.has_selection() {
         state.units.select_return(&mut map);
+        selection.clear_path(&mut map,layer);
     }
 
     if window.cursor_position().is_some() {

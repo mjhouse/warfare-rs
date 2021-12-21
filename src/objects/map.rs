@@ -26,8 +26,10 @@ const MAX: usize = 5;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Selection {
-    pub index: Index,
-    pub id:    Id,
+    pub id: Id,
+    pub start: Index,
+    pub end: Index,
+    pub actions: (u8,u8),
 }
 
 #[derive(Debug, Clone)]
@@ -39,18 +41,22 @@ pub struct Position {
 pub struct Map {
     positions: Vec<Position>,
     selected: Vec<Selection>,
-    initial: Vec<Selection>,
 }
 
 impl Selection {
     pub fn new(point: &Point, unit: &Unit) -> Self {
         Self {
-            index: point.as_index() as usize,
             id: *unit.id(),
+            start: point.as_index() as usize,
+            end: point.as_index() as usize,
+            actions: (
+                unit.actions(), // initial actions
+                unit.actions(), // current actions
+            ),
         }
     }
     pub fn update(&mut self, point: &Point) {
-        self.index = point.as_index() as usize;
+        self.end = point.as_index() as usize;
     }
 }
 
@@ -139,7 +145,6 @@ impl Map {
         Self {
             positions: vec![Position::new(); size],
             selected: vec![],
-            initial: vec![],
         }
     }
 
@@ -168,21 +173,26 @@ impl Map {
     }
 
     pub fn select_none(&mut self) {
+        let selected = self.selected.clone();
+        for s in selected.iter() {
+            if let Some(unit) = self.get_unit_mut(s) {
+                let used = s.actions.0.saturating_sub(s.actions.1);
+                unit.use_actions(used);
+                //unit.set_position();
+            }
+        }
         self.selected.clear();
-        self.initial.clear();
     }
 
     pub fn select_top(&mut self, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
             self.selected = vec![Selection::new(&point,unit)];
-            self.initial = self.selected.clone();
         }
     }
 
     pub fn select_id(&mut self, point: &Point, id: Id) {
         if let Some(unit) = self.get_id(point,&id) {
             self.selected.push(Selection::new(&point,unit));
-            self.initial = self.selected.clone();
         }
     }
 
@@ -193,56 +203,21 @@ impl Map {
                 .iter()
                 .map(|u| Selection::new(&point,u))
                 .collect());
-        self.initial = self.selected.clone();
     }
 
     pub fn select_return(&mut self, map: &mut Tilemap) {
-        // get potentially empty tiles that will need 
-        // to be checked later to see if the token 
-        // should be removed.
-        let moved: Vec<(usize,usize)> = self
-            .selected
-            .iter()
-            .filter_map(|s| self
-                .get_unit(s)
-                .map(|u| (s.index,*u.layer())))
-            .collect();
+        let mut previous = self.selected.clone();
+        self.hide(map, &self.selected);
 
-        let initial = self.initial.clone();
-
-        // move to each initial position and leave the
-        // unit that started there.
-        for p in initial.iter() {
-            self.moveto(&Point::from_index(p.index as i32));
-            self.selected.retain(|s| s.id != p.id);
+        // move to each starting position and leave the
+        // unit(s) that started there.
+        for p in previous.iter_mut() {
+            self.moveto(&Point::from_index(p.start as i32));
+            self.selected.retain(|s| s.start != p.start);
+            p.end = p.start;
         }
 
-        // get points for positions left empty
-        let points: Vec<((i32,i32),usize)> = moved
-            .into_iter()
-            .filter(|(i,l)| self.is_empty(i))
-            .map(Point::tuple_index)
-            .collect();
-
-        // remove empty tiles after move
-        if let Err(e) = map.clear_tiles(points) {
-            log::warn!("{:?}", e);
-        }
-
-        let mut after: Vec<Tile<_>> = initial
-            .iter()
-            .filter_map(|s| self.get_unit(s))
-            .map(|u| u.as_tile())
-            .collect();
-
-        // remove duplicate tiles
-        after.sort_by(|a,b| a.point.cmp(&b.point));
-        after.dedup();
-
-        // insert tiles after unit move
-        if let Err(e) = map.insert_tiles(after) {
-            log::warn!("{:?}", e);
-        }
+        self.show(map, &previous);
     }
 
     pub fn get_top(&self, point: &Point) -> Option<&Unit> {
@@ -272,7 +247,7 @@ impl Map {
             .into_iter()
             .filter_map(|s| self
                 .positions
-                .get_mut(s.index)
+                .get_mut(s.end)
                 .map(|p| p.take(s.id))
                 .flatten())
             .collect::<Vec<Unit>>();
@@ -306,17 +281,22 @@ impl Map {
     pub fn pathto(&mut self, map: &mut Tilemap, impedance: &HashMap<Point, f32>, point: &Point, layer: usize, blank: usize) -> Vec<Point> {
         let mut path = vec![];
 
-        if let Err(e) = self.update(map,&point) {
-            log::warn!("{:?}", e);
-        }
+        for s in self.selected.iter_mut() {
 
-        for (id,start,end) in self.routes().into_iter() {
+            let finder = Pathfinder::new(&impedance, point!(s.start), point!(s.end));
 
-            let finder = Pathfinder::new(&impedance, start, end);
+            // init actions to initial values
+            let ( ref initial, ref mut current ) = s.actions;
+            *current = *initial;
 
             path = finder
                 .find_weighted()
                 .into_iter()
+                .filter(|(_, c)| {
+                    let cost = c.max(0.).min(100.) as u8;
+                    *current = current.saturating_sub(cost);
+                    *current > 0
+                })
                 .map(|(p, _)| p)
                 .collect::<Vec<Point>>();
 
@@ -325,7 +305,7 @@ impl Map {
             if let Some(last) = path.last().cloned() {
                 
                 // get all but the last position
-                path = path.into_iter().filter(|&p| p != last).collect();
+                path.retain(|&p| p != last);
                 
                 // build path tiles
                 let tiles = path
@@ -346,19 +326,11 @@ impl Map {
             }
         }
 
-        path
-    }
+        if let Err(e) = self.update(map,&point) {
+            log::warn!("{:?}", e);
+        }
 
-    pub fn routes(&self) -> Vec<(Id,Point,Point)> {
-        self.initial
-            .iter()
-            .map(|s| (s.id,point!(s.index)))
-            .filter_map(|(i,p)| self
-                .selected
-                .iter()
-                .find(|s| s.id == i)
-                .map(|s| (i,p,point!(s.index))))
-            .collect()
+        path
     }
 
     pub fn get_units(&self, point: &Point) -> Vec<&Unit> {
@@ -406,13 +378,13 @@ impl Map {
     }
 
     fn get_unit(&self, s: &Selection) -> Option<&Unit> {
-        self.get_idx(s.index)
+        self.get_idx(s.end)
             .map(|p| p.id(&s.id))
             .flatten()
     }
 
     fn get_unit_mut(&mut self, s: &Selection) -> Option<&mut Unit> {
-        self.get_idx_mut(s.index)
+        self.get_idx_mut(s.end)
             .map(|p| p.id_mut(&s.id))
             .flatten()
     }
@@ -449,17 +421,17 @@ impl Map {
         let tiles: Vec<_> = units
             .iter()
             .filter_map(|s| self
-                .get_idx(s.index)
+                .get_idx(s.end)
                 .map(|p| (s,p)))
             .map(|(s,p)| ( s, units
                 .iter()
-                .filter(|u| u.index == s.index)
+                .filter(|u| u.end == s.end)
                 .fold(p.count(),|a,_| a
                     .saturating_sub(1))))
             .filter(|&(_,c)| c == 0)
             .filter_map(|(s,_)| self
                 .get_unit(s)
-                .map(|u| (s.index,*u.layer())))
+                .map(|u| (s.end,*u.layer())))
             .map(Point::tuple_index)
             .collect();
 
