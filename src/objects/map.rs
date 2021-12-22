@@ -278,59 +278,165 @@ impl Map {
         Ok(())
     }
 
-    pub fn pathto(&mut self, map: &mut Tilemap, impedance: &HashMap<Point, f32>, point: &Point, layer: usize, blank: usize) -> Vec<Point> {
-        let mut path = vec![];
+    fn space(&self, point: &Point) -> usize {
+        self.get(point)
+            .map(|p| p.space())
+            .unwrap_or(0)
+    }
+
+    fn draw(&self, map: &mut Tilemap, points: &Vec<Point>, layer: usize, sprite: usize) {
+        let tiles: Vec<Tile<_>> = points
+            .iter()
+            .map(|p| Tile {
+                point: p.integers(),
+                sprite_order: layer,
+                sprite_index: sprite,
+                tint: Color::rgba(1., 1., 1., 0.25),
+            })
+            .collect();
+
+        if let Err(e) = map.insert_tiles(tiles) {
+            log::warn!("{:?}", e);
+        }
+    }
+
+    pub fn pathto(&mut self, map: &mut Tilemap, impedance: &HashMap<Point, f32>, point: &Point, layer: usize, sprite: usize) -> Vec<Point> {
+        let mut points = vec![];
+
+        let count = self.count();
+        let space = self.space(point);
+
+        if count == 0 || space < count {
+            return points;
+        }
+
+        self.hide(map, &self.selected);
+
+        // find all selected units
+        let mut units = self.selected
+            .clone()
+            .into_iter()
+            .filter_map(|s| self
+                .positions
+                .get_mut(s.end)
+                .map(|p| p.take(s.id))
+                .flatten())
+            .map(|u| (*u.id(),u))
+            .collect::<HashMap<Id,Unit>>();
+
+        let mut paths: IndexMap<Id,Vec<Point>> = IndexMap::new();
 
         for s in self.selected.iter_mut() {
-
-            let finder = Pathfinder::new(&impedance, point!(s.start), point!(s.end));
+            let finder = Pathfinder::new(&impedance, point!(s.start), *point);
 
             // init actions to initial values
-            let ( ref initial, ref mut current ) = s.actions;
-            *current = *initial;
+            let ( i, _ ) = s.actions;
+            let mut c = i;
 
-            path = finder
+            let path = finder
                 .find_weighted()
                 .into_iter()
-                .filter(|(_, c)| {
-                    let cost = c.max(0.).min(100.) as u8;
-                    *current = current.saturating_sub(cost);
-                    *current > 0
+                .filter(|(_, n)| {
+                    let cost = n.max(0.).min(100.) as u8;
+                    c = c.saturating_sub(cost);
+                    c > 0
                 })
                 .map(|(p, _)| p)
                 .collect::<Vec<Point>>();
+            
+            s.actions.1 = c;
+            paths.insert(s.id,path);
+        }
 
-            // getting last also checks that there is at least one
-            // position in the path
-            if let Some(last) = path.last().cloned() {
-                
-                // get all but the last position
-                path.retain(|&p| p != last);
-                
-                // build path tiles
-                let tiles = path
+        // for each path in paths
+        //      while path has points
+        //          set count to 0
+        //          get the last point of the current path
+        //          count = number of un-selected units at that point
+        //          count += number of paths that end at that point
+        //          if count >= MAX
+        //              remove last point
+
+        
+        let mut i = 0;
+        while i < paths.len() {
+            let maybe_last = paths
+                .get_index(i)
+                .map(|(k,v)| v
+                    .last())
+                .flatten()
+                .cloned();
+
+            if let Some(last) = maybe_last {
+                let mut count = self
+                    .get(&last)
+                    .map(|p| p.count())
+                    .unwrap_or(MAX);
+
+                count += paths
                     .iter()
-                    .map(|p| Tile {
-                        point: p.integers(),
-                        sprite_order: layer,
-                        sprite_index: blank,
-                        tint: Color::rgba(1., 1., 1., 0.25),
-                    })
-                    .collect::<Vec<Tile<(i32, i32)>>>();
+                    .filter(|(_,p)| p
+                        .last() == Some(&last))
+                    .count();
 
-                // insert partially tranparent tiles for path
-                // into the tile map
-                if let Err(e) = map.insert_tiles(tiles) {
-                    log::warn!("{:?}", e);
+                // check if point is overcrowded
+                if count > MAX {
+
+                    let maybe_path = paths
+                        .get_index_mut(i)
+                        .map(|(k,v)| v);
+
+                    if let Some(path) = maybe_path {
+                        // remove last point from path
+                        path.retain(|p| p != &last);
+
+                        // skip incrementing 'i'
+                        continue;
+                    }
+                }
+            }
+
+            i += 1;
+        }
+
+
+        for s in self.selected.iter_mut() {
+            if let Some(unit) = units.get_mut(&s.id) {
+                if let Some(path) = paths.get_mut(&s.id) {
+                    if let Some(last) = path.last().cloned() {
+                        // get all but the last position
+                        path.retain(|&p| p != last);
+                        
+                        // update the selection to the last valid point
+                        s.end = last.to_index() as usize;
+        
+                        // update the unit location to the last point
+                        unit.set_position(&last);
+                    }
                 }
             }
         }
 
-        if let Err(e) = self.update(map,&point) {
-            log::warn!("{:?}", e);
+        // move units to the new position
+        for (_,unit) in units.into_iter() {
+            match self.get_mut(unit.position()) {
+                Some(pos) => pos.give(unit),
+                None => panic!("Unit placed on nonexistant tile"),
+            };
         }
 
-        path
+        self.show(map, &self.selected);
+
+        let points = paths
+            .into_iter()
+            .map(|(i,p)| p)
+            .map(Vec::into_iter)
+            .flatten()
+            .collect();
+
+        self.draw(map,&points,layer,sprite);
+
+        points
     }
 
     pub fn get_units(&self, point: &Point) -> Vec<&Unit> {
@@ -445,8 +551,10 @@ impl Map {
         // get tile positions to insert unit graphics
         let mut tiles: Vec<Tile<_>> = units
             .iter()
-            .filter_map(|s| self.get_unit(s))
-            .map(|u| u.as_tile())
+            .filter_map(|s| self
+                .get_unit(s))
+            .map(|u| u
+                .as_tile())
             .collect();
         
         // remove duplicate locations so that we don't insert
