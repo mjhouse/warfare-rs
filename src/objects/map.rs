@@ -175,10 +175,11 @@ impl Map {
     pub fn select_none(&mut self) {
         let selected = self.selected.clone();
         for s in selected.iter() {
-            if let Some(unit) = self.get_unit_mut(s) {
-                let used = s.actions.0.saturating_sub(s.actions.1);
-                unit.use_actions(used);
-                //unit.set_position();
+            if s.start != s.end {
+                if let Some(unit) = self.get_unit_mut(s) {
+                    let used = s.actions.0.saturating_sub(s.actions.1);
+                    unit.use_actions(used);
+                }
             }
         }
         self.selected.clear();
@@ -188,6 +189,16 @@ impl Map {
         if let Some(unit) = self.get_top(&point) {
             self.selected = vec![Selection::new(&point,unit)];
         }
+    }
+
+    pub fn select_all(&mut self, point: &Point) {
+        self.selected
+            .append(&mut self
+                .get_all(&point)
+                .iter()
+                .map(|u| Selection::new(&point,u))
+                .collect());
+        log::info!("selected: {}",self.selected.len());
     }
 
     pub fn select_id(&mut self, point: &Point, id: Id) {
@@ -224,6 +235,12 @@ impl Map {
         self.get(point)
             .map(|p| p.top())
             .flatten()
+    }
+
+    pub fn get_all(&self, point: &Point) -> Vec<&Unit> {
+        self.get(point)
+            .map(|p| p.list())
+            .unwrap_or(Vec::new())
     }
 
     pub fn get_id(&self, point: &Point, id: &Id) -> Option<&Unit> {
@@ -270,14 +287,6 @@ impl Map {
         Ok(())
     }
 
-    pub fn update(&mut self, map: &mut Tilemap, point: &Point) -> Result<()> {
-        self.is_valid(point)?;
-        self.hide(map, &self.selected);
-        self.moveto(point)?;
-        self.show(map, &self.selected);
-        Ok(())
-    }
-
     fn space(&self, point: &Point) -> usize {
         self.get(point)
             .map(|p| p.space())
@@ -301,15 +310,6 @@ impl Map {
     }
 
     pub fn pathto(&mut self, map: &mut Tilemap, impedance: &HashMap<Point, f32>, point: &Point, layer: usize, sprite: usize) -> Vec<Point> {
-        let mut points = vec![];
-
-        let count = self.count();
-        let space = self.space(point);
-
-        if count == 0 || space < count {
-            return points;
-        }
-
         self.hide(map, &self.selected);
 
         // find all selected units
@@ -348,16 +348,6 @@ impl Map {
             paths.insert(s.id,path);
         }
 
-        // for each path in paths
-        //      while path has points
-        //          set count to 0
-        //          get the last point of the current path
-        //          count = number of un-selected units at that point
-        //          count += number of paths that end at that point
-        //          if count >= MAX
-        //              remove last point
-
-        
         let mut i = 0;
         while i < paths.len() {
             let maybe_last = paths

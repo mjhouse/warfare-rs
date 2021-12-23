@@ -263,7 +263,7 @@ fn selected_highlight_system(
         // top unit at the position
         if inputs.just_pressed(selection.button) {
             selection.selected = selection.hovered;
-            state.units.select_top(&selection.selected.into());
+            state.units.select_all(&selection.selected.into());
         }
         // if the selection button has just been released, then deselect
         // whatever units are selected
