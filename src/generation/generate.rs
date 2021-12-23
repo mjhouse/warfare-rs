@@ -344,6 +344,8 @@ impl Generator {
     }
 
     pub fn textures(&mut self, textures: &Textures, x: i32, y: i32) -> Vec<usize> {
+        use crate::resources::Label::*;
+
         let mut result = vec![textures.soil(&self.soil(x, y))];
 
         let m = self.moisture(x, y);
@@ -353,27 +355,27 @@ impl Generator {
 
         if m > 99 {
             if self.is_deep_water(x, y) {
-                result.push(textures.get("water_deep"));
+                result.push(textures.get(DeepWater));
             } else {
-                result.push(textures.get("water_shallow"));
+                result.push(textures.get(ShallowWater));
             }
         } else {
             if j < 0. {
-                result.push(textures.get("snow"));
+                result.push(textures.get(Snow));
             } else {
                 if f > 75 {
-                    result.push(textures.get("grass1"));
+                    result.push(textures.get(Grass1));
                 } else if f > 50 {
-                    result.push(textures.get("grass2"));
+                    result.push(textures.get(Grass2));
                 } else if f > 25 {
-                    result.push(textures.get("grass3"));
+                    result.push(textures.get(Grass3));
                 } else {
-                    result.push(textures.get("grass4"));
+                    result.push(textures.get(Grass4));
                 }
             }
 
             if t == Foliage::Trees {
-                result.push(textures.get("trees"));
+                result.push(textures.get(Trees));
             }
         }
 

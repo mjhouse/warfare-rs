@@ -5,6 +5,7 @@ use bevy_tilemap::{Tile, Tilemap};
 use crate::generation::{Attribute, LayerUse};
 use crate::resources::Spectrum;
 use crate::state::{Action, State};
+use crate::resources::Label;
 
 pub struct OverlayPlugin;
 
@@ -154,7 +155,7 @@ fn overlay_update_system(
                     // otherwise get a blank one
                     let texture = match state.terrain.overlay {
                         Attribute::None => state.get_texture(&point),
-                        _ => state.textures.get("blank"),
+                        _ => state.textures.get(Label::Blank),
                     };
 
                     tiles.push(Tile {

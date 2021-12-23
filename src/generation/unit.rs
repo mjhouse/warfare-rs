@@ -4,6 +4,7 @@ use crate::objects::Point;
 use crate::state::demographics::{Demographics, Sex};
 use crate::state::traits::*;
 use crate::state::State;
+use crate::resources::Label;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Specialty {
@@ -163,7 +164,7 @@ impl Unit {
             .get(&LayerUse::Units)
             .expect("Must have unit layer");
 
-        self.marker.texture = state.textures.get("unit");
+        self.marker.texture = state.textures.get(Label::Unit);
 
         self
     }

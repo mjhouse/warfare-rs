@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::objects::Location;
 use crate::objects::Point;
 use crate::objects::Map;
-use crate::resources::{Spectrum, Textures};
+use crate::resources::{Spectrum, Textures, Label};
 
 use crate::state::{traits::*, Calendar, Events};
 
@@ -198,7 +198,7 @@ impl State {
     }
 
     pub fn get_texture(&self, loc: &Location) -> usize {
-        let blank = self.textures.get("blank");
+        let blank = self.textures.get(Label::Blank);
         match self.areas.get(loc) {
             Some(a) => a.texture().unwrap_or(blank),
             None => blank,

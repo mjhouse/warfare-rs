@@ -5,6 +5,54 @@ use bevy::sprite::TextureAtlas;
 
 use crate::generation::Soil;
 
+pub enum Label {
+    ShallowWater,
+    DeepWater,
+    Snow,
+    Grass1,
+    Grass2,
+    Grass3,
+    Grass4,
+    Trees,
+    Clay,
+    Sand,
+    Silt,
+    Peat,
+    Chalk,
+    Loam,
+    Blank,
+    Unit,
+    Marker,
+}
+
+impl Label {
+    /// keep the mapping in same location as 
+    /// the load function so that when label names
+    /// change they can be updated.
+    pub fn as_str(&self) -> &'static str {
+        use Label::*;
+        match self {
+            ShallowWater => "water_shallow",
+            DeepWater => "water_deep",
+            Snow => "snow",
+            Grass1 => "grass1",
+            Grass2 => "grass2",
+            Grass3 => "grass3",
+            Grass4 => "grass4",
+            Trees => "trees",
+            Clay => "clay",
+            Sand => "sand",
+            Silt => "silt",
+            Peat => "peat",
+            Chalk => "chalk",
+            Loam => "loam",
+            Blank => "blank",
+            Unit => "unit",
+            Marker => "marker",
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Textures {
     textures: HashMap<&'static str, usize>,
@@ -49,19 +97,19 @@ impl Textures {
             .collect();
     }
 
-    pub fn get(&self, label: &str) -> usize {
-        self.textures[label]
+    pub fn get(&self, texture: Label) -> usize {
+        self.textures[texture.as_str()]
     }
 
     pub fn soil(&self, soil: &Soil) -> usize {
         match soil {
-            Soil::Clay => self.get("clay"),
-            Soil::Sand => self.get("sand"),
-            Soil::Silt => self.get("silt"),
-            Soil::Peat => self.get("peat"),
-            Soil::Chalk => self.get("chalk"),
-            Soil::Loam => self.get("loam"),
-            Soil::None => self.get("blank"),
+            Soil::Clay => self.get(Label::Clay),
+            Soil::Sand => self.get(Label::Sand),
+            Soil::Silt => self.get(Label::Silt),
+            Soil::Peat => self.get(Label::Peat),
+            Soil::Chalk => self.get(Label::Chalk),
+            Soil::Loam => self.get(Label::Loam),
+            Soil::None => self.get(Label::Blank),
         }
     }
 }

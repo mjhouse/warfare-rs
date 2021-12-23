@@ -11,6 +11,7 @@ use crate::systems::camera::Camera;
 use crate::behavior::Pathfinder;
 use crate::generation::Unit;
 use crate::generation::id::Id;
+use crate::resources::Label;
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -261,7 +262,7 @@ fn selected_highlight_system(
         .max(&LayerUse::Selection)
         .expect("Need selection layer");
 
-    let blank = state.textures.get("blank");
+    let blank = state.textures.get(Label::Blank);
 
     if selection.interacting {
         return;

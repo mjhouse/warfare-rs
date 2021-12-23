@@ -8,6 +8,7 @@ use bevy_tilemap::prelude::*;
 
 use crate::generation::{Area, Generator, LayerUse};
 use crate::state::{traits::*, Action, Context, State};
+use crate::resources::Label;
 
 pub struct GeneratorPlugin;
 
@@ -187,7 +188,7 @@ fn generator_configure_system(
             state.events.clear(Action::UpdateTerrain);
 
             // update selection marker
-            let t = state.textures.get("marker");
+            let t = state.textures.get(Label::Marker);
 
             let l = state
                 .layers
