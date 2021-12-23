@@ -2,12 +2,15 @@ use bevy::input::mouse::MouseButton;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use bevy_tilemap::{Tile, Tilemap};
+use std::collections::HashSet;
 
 use crate::generation::LayerUse;
 use crate::math::MidRound;
 use crate::state::{traits::*, Action, State};
 use crate::systems::camera::Camera;
 use crate::behavior::Pathfinder;
+use crate::generation::Unit;
+use crate::generation::id::Id;
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -40,6 +43,8 @@ pub struct Selection {
     pub release: KeyCode,
 
     pub interacting: bool,
+
+    pub units: HashSet<Id>,
 }
 
 impl Selection {
@@ -57,6 +62,18 @@ impl Selection {
             }
         }
     }
+
+    pub fn add(&mut self, unit: &Unit) -> bool {
+        self.units.insert(*unit.id())
+    }
+
+    pub fn has(&self, unit: &Unit) -> bool {
+        self.units.contains(unit.id())
+    }
+
+    pub fn remove(&mut self, unit: &Unit) -> bool {
+        self.units.remove(unit.id())
+    }
 }
 
 impl Default for Selection {
@@ -72,6 +89,7 @@ impl Default for Selection {
             button: MouseButton::Left,
             release: KeyCode::Escape,
             interacting: false,
+            units: HashSet::new(),
         }
     }
 }
@@ -263,13 +281,22 @@ fn selected_highlight_system(
         // top unit at the position
         if inputs.just_pressed(selection.button) {
             selection.selected = selection.hovered;
-            state.units.select_all(&selection.selected.into());
+            if selection.units.is_empty() {
+                state.units.select_top(&selection.selected.into());
+            }
+            else {
+                state.units.select_ids(
+                    &selection.selected.into(),
+                    selection.units.drain().collect(),
+                );
+            }
         }
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
             state.units.select_none();
             selection.clear_path(&mut map,layer);
+            selection.units.clear();
         }
         // if the button is pressed (but not just-pressed) and the selection
         // location is hovering over a new tile, then trigger dragging

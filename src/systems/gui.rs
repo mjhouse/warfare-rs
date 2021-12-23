@@ -50,6 +50,7 @@ fn gui_configure_system(
 fn gui_display_system(
     mut state: ResMut<State>,
     windows: Res<Windows>,
+    keyboard: Res<Input<KeyCode>>,
     mut query: Query<&mut Selection>,
     context: ResMut<EguiContext>,
     _assets: Res<AssetServer>,
@@ -175,20 +176,25 @@ fn gui_display_system(
                 ui.set_height(ui.available_height());
 
                 for unit in units.into_iter() {
-                    let name = format!("Unit {}",unit.id());
-                    ui.collapsing(name, |ui| {
-                        ui.separator();
+                    let mut select = selection.has(unit);
+
+                    ui.add_space(10.);
+                    ui.collapsing(format!("Unit {}",unit.id()), |ui| {
+                        ui.add_space(10.);
                         ui.heading("Info");
-        
+                        
                         ui.monospace(format!("ID:     {}", unit.id()));
                         ui.monospace(format!("Type:   {:?}", unit.specialty()));
                         ui.monospace(format!("AP:     {}", unit.actions()));
                         ui.monospace(format!("Max AP: {}", unit.max_actions()));
         
-                        ui.separator();
+                        ui.add_space(10.);
+                        ui.checkbox(&mut select,"Select unit");
+                        ui.add_space(10.);
                         ui.collapsing("Soldiers", |ui| {
                             egui::ScrollArea::from_max_height(400.)
                                 .show(ui, |ui| {
+                                ui.add_space(5.);
                                 for soldier in unit.soldiers() {
                                     let (h, mh) = soldier.health();
                                     let (m, mm) = soldier.morale();
@@ -210,10 +216,18 @@ fn gui_display_system(
                                         ui.monospace(format!("  Defense: {} / {}", d, md));
                                         ui.monospace(format!("  Attack:  {} / {}", a, ma));
                                     });
+                                    ui.add_space(5.);
                                 }
                             });
                         });
                     });
+
+                    if select {
+                        selection.add(unit);
+                    }
+                    else {
+                        selection.remove(unit);
+                    }
                 }
 
                 // TODO: fix this bullshit
