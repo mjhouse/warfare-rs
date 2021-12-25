@@ -2,8 +2,28 @@ use crate::generation::{Biome, Soil};
 use crate::state::traits::HasId;
 use crate::state::{Action, State};
 use crate::systems::selection::Selection;
+use crate::systems::network::NetworkState;
+
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
+
+pub struct GuiState {
+    network: bool,
+    ip: String,
+    port: u16,
+    message: String,
+}
+
+impl Default for GuiState {
+    fn default() -> Self {
+        Self {
+            network: false,
+            ip: "127.0.0.1".into(),
+            port: 8080,
+            message: "".into(),
+        }
+    }
+}
 
 pub struct GuiPlugin;
 
@@ -48,6 +68,8 @@ fn gui_configure_system(
 
 // called repeatedly to update ui
 fn gui_display_system(
+    mut gui: ResMut<GuiState>,
+    mut network: ResMut<NetworkState>,
     mut state: ResMut<State>,
     windows: Res<Windows>,
     keyboard: Res<Input<KeyCode>>,
@@ -121,7 +143,9 @@ fn gui_display_system(
                         state.events.send(Action::PlaceUnit);
                     }
 
-                    if ui.button("Debug").clicked() {}
+                    if ui.button("Network").clicked() {
+                        gui.network = !gui.network;
+                    }
                 });
 
                 ui.label(format!("{}", state.calendar));
@@ -255,6 +279,76 @@ fn gui_display_system(
         {
             hovering = hovering || window.response.hovered();
         }
+    }
+
+    if gui.network {
+        egui::Window::new("Network")
+        .default_width(300.0)
+        .default_height(80.0)
+        .collapsible(false)
+        .resizable(false)
+        .show(context.ctx(), |ui| {
+            ui.set_width(ui.available_width());
+            ui.set_height(ui.available_height());
+
+            ui.horizontal(|ui| {
+                ui.monospace("ip:   ");
+                ui.text_edit_singleline(&mut gui.ip);
+            });
+
+            ui.horizontal(|ui| {
+                ui.monospace("port: ");
+
+                let mut port = gui.port.to_string();
+                ui.text_edit_singleline(&mut port);
+                if let Ok(v) = port.parse::<u16>() {
+                    gui.port = v;
+                }
+            });
+
+
+            ui.horizontal(|ui| {
+                if ui.button("Host").clicked() {
+                    network.host(gui.ip.clone(),gui.port);
+                }
+
+                if ui.button("Connect").clicked() {
+                    network.connect(gui.ip.clone(),gui.port);
+                }
+
+                if ui.button("Disconnect").clicked() {
+                    network.disconnect();
+                }
+            });
+
+            ui.text_edit_singleline(&mut gui.message);
+            if ui.button("Send").clicked() {
+                network.send(gui.message.clone());
+                gui.message.clear();
+            }
+
+            // TODO: fix this bullshit
+            if let Some(mut p) = window.cursor_position() {
+                let mut r = ui.min_rect();
+                let s = ui.style();
+
+                p.y = window.height() - p.y;
+
+                let pad = s.spacing.window_padding;
+                let side = s.interaction.resize_grab_radius_side;
+
+                r.min.x -= pad.x + side;
+                r.max.x += pad.x + side + 5.;
+                r.min.y -= pad.y + side + 25.;
+                r.max.y += pad.y + side;
+
+                if p.x >= r.min.x && p.x <= r.max.x && p.y >= r.min.y && p.y <= r.max.y {
+                    selection.hovering = false;
+                }
+            } else {
+                selection.hovering = false;
+            }
+        });
     }
 
     selection.interacting = hovering;
