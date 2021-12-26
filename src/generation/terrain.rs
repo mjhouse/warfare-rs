@@ -1,12 +1,13 @@
 #![allow(unused)]
 
+use serde::{Deserialize, Serialize};
 use rand::distributions::{Distribution, Standard};
-use rand::Rng;
 use std::fmt::{Debug, Display, Formatter, Result};
+use rand::Rng;
 
 use crate::generation::WeatherType;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Biome {
     None,      // no biome value
     Grassland, // high movement, low cover, med forage
@@ -16,7 +17,7 @@ pub enum Biome {
     Aquatic,   // freshwater or marine, very low move
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Soil {
     None,  // no soil value
     Clay,  // holds water, bad fertility

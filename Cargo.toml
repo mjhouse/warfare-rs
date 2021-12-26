@@ -14,14 +14,15 @@ chrono = "0.4.19"             # calendar and date
 once_cell = "1.8.0"           # context struct
 
 serde = { version = "1.0.130", features = ["derive"] }
-# tokio = { version = "1.4.0", features = ["net", "io-util", "sync", "rt-multi-thread"] }
-erased-serde = { version = "0.3.16", features = ["unstable-debug"] }
+erased-serde = { version = "0.3.17", features = ["unstable-debug"] }
 typetag = "0.1.8"
 
 # noise for map generation
 rand = "0.8.4"
 rand_distr = "0.4.2"
+rand_pcg = "0.3.1"
 noise = "0.7.0"
+itertools = "0.10.3"
 
 # ordered hashmap for unit position
 indexmap = "1.7.0"

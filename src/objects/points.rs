@@ -1,5 +1,6 @@
-use std::fmt;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use std::fmt;
 
 use crate::math::MidRound;
 use crate::state::Context;
@@ -24,15 +25,15 @@ pub enum SystemType {
 }
 
 /// Marker type for offset coordinates
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Offset;
 
 /// Marker type for axial coordinates
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Axial;
 
 /// Marker type for cubic coordinates
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Cubic;
 
 type Index = i32;
@@ -53,7 +54,7 @@ impl System2D for Offset {}
 impl System2D for Axial {}
 impl System3D for Cubic {}
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Point<T: System = Offset> {
     pub x: i32,
     pub y: i32,

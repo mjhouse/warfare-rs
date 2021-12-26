@@ -34,6 +34,10 @@ impl Season {
 }
 
 impl Calendar {
+    pub fn turn(&self) -> u32 {
+        self.turn
+    }
+
     pub fn from_date(year: i32, month: u32, day: u32) -> Self {
         let date = NaiveDate::from_ymd(year, month, day);
         let turn = date.ordinal();

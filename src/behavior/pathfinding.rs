@@ -1035,7 +1035,7 @@ mod tests {
             (Point::new(14, 14), 12.)
         ];
 
-        let finder = Pathfinder::new(tilemap, (0, 0).into(), (2, 2).into());
+        let finder = Pathfinder::new(&tilemap, (0, 0).into(), (2, 2).into());
         let path = finder.find();
 
         assert_eq!(path.len(), 4);

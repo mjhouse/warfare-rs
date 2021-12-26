@@ -4,6 +4,7 @@ use bevy_tilemap::{Tile, Tilemap};
 use crate::generation::{LayerUse, Specialty, Unit};
 use crate::state::{traits::*, Action, State};
 use crate::systems::selection::Selection;
+use crate::systems::network::{NetworkState,MessageData};
 
 pub struct ControlPlugin;
 
@@ -12,6 +13,7 @@ use crate::objects::Point;
 
 fn control_place_system(
     mut state: ResMut<State>,
+    mut network: ResMut<NetworkState>,
     inputs: Res<Input<MouseButton>>,
     mut map_query: Query<&mut Tilemap>,
     mut sel_query: Query<&mut Selection>,
@@ -36,7 +38,8 @@ fn control_place_system(
                     .build(&state);
     
                 unit.insert(&mut tilemap);
-                state.units.add(point,unit);
+                state.units.add(point,unit.clone());
+                network.send(MessageData::Created(unit));
             }
             state.events.clear(Action::PlaceUnit);
         }

@@ -1,5 +1,5 @@
 use crate::generation::id::Id;
-use crate::generation::Unit;
+use crate::generation::{Place,Unit};
 use crate::objects::Point;
 use crate::state::traits::HasId;
 use crate::state::Context;
@@ -158,6 +158,16 @@ impl Map {
             .unwrap_or(0)
     }
 
+    pub fn places(&self) -> Vec<Place> {
+        self.selected
+            .iter()
+            .map(|s| Place {
+                id: s.id,
+                point: Point::from_index(s.end as i32),
+            })
+            .collect()
+    }
+
     pub fn has_unit(&self, point: &Point, id: &Id) -> bool {
         self.get(point)
             .map(|p| p.contains(id))
@@ -185,6 +195,10 @@ impl Map {
         self.selected.clear();
     }
 
+    pub fn select_none_free(&mut self) {
+        self.selected.clear();
+    }
+
     pub fn select_top(&mut self, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
             self.selected = vec![Selection::new(&point,unit)];
@@ -205,6 +219,15 @@ impl Map {
         if let Some(unit) = self.get_id(point,&id) {
             self.selected.push(Selection::new(&point,unit));
         }
+    }
+
+    pub fn select(&mut self, ids: &Vec<Id>) {
+        self.selected
+            .append(&mut self
+                .get_all_ids(ids)
+                .iter()
+                .map(|u| Selection::new(u.position(),u))
+                .collect());
     }
 
     pub fn select_ids(&mut self, point: &Point, ids: Vec<Id>) {
@@ -231,6 +254,12 @@ impl Map {
         self.show(map, &previous);
     }
 
+    pub fn move_selection(&mut self, map: &mut Tilemap, point: &Point) {
+        self.hide(map, &self.selected);
+        self.moveto(point);
+        self.show(map, &self.selected);
+    }
+
     pub fn get_top(&self, point: &Point) -> Option<&Unit> {
         self.get(point)
             .map(|p| p.top())
@@ -253,6 +282,13 @@ impl Map {
         self.get(point)
             .map(|p| p.ids(ids))
             .unwrap_or(Vec::new())
+    }
+
+    pub fn get_all_ids(&self, ids: &Vec<Id>) -> Vec<&Unit> {
+        self.units()
+            .into_iter()
+            .filter(|u| ids.contains(u.id()))
+            .collect()
     }
 
     pub fn moveto(&mut self, point: &Point) -> Result<()> {

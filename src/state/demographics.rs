@@ -1,5 +1,8 @@
-use crate::objects::NameGenerator;
+use rand::rngs::ThreadRng;
+use serde::{Deserialize, Serialize};
 use rand_distr::{Distribution, Normal, WeightedIndex};
+
+use crate::objects::{Name,NameGenerator};
 
 macro_rules! weighted {
     ( $weights:expr ) => {
@@ -7,13 +10,14 @@ macro_rules! weighted {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Sex {
     Male,
     Female,
 }
 
 pub struct Demographics {
+    pub rng: ThreadRng,
     pub name: NameGenerator,
     pub sex: Division<'static, Sex>,
     pub age: Demographic,
@@ -39,23 +43,23 @@ pub struct Demographic {
 }
 
 impl<T> Division<'_, T> {
-    pub fn gen(&self) -> &T {
+    pub fn gen(&self, rng: &mut ThreadRng) -> &T {
         self.results
-            .get(weighted!(self.weights).sample(&mut rand::thread_rng()))
+            .get(weighted!(self.weights).sample(rng))
             .expect("Weight/result mismatch")
     }
 }
 
 impl Demographic {
-    pub fn gen(&self, sex: &Sex) -> u32 {
+    pub fn gen(&self, rng: &mut ThreadRng, sex: &Sex) -> u32 {
         // force: 0 < min < max
         let max = self.max.max(0.);
         let min = self.min.max(0.).min(max);
 
-        // geanerate
+        // generate
         match sex {
-            Sex::Male => self.male.gen(),
-            Sex::Female => self.female.gen(),
+            Sex::Male => self.male.gen(rng),
+            Sex::Female => self.female.gen(rng),
         }
         .clamp(min, max)
         .round() as u32
@@ -63,9 +67,10 @@ impl Demographic {
 }
 
 impl Variation {
-    pub fn gen(&self) -> f32 {
-        let d = Normal::new(self.mean, self.stdv).expect("Could not create normal distribution");
-        d.sample(&mut rand::thread_rng())
+    fn gen(&self, rng: &mut ThreadRng) -> f32 {
+        Normal::new(self.mean, self.stdv)
+            .expect("Could not create normal distribution")
+            .sample(rng)
     }
 }
 
@@ -79,9 +84,10 @@ impl Variation {
 //          (std-dev calculated from (std_error) * sqrt(sample_size))
 // military:
 //      https://www.cfr.org/backgrounder/demographics-us-military
-impl Default for Demographics {
-    fn default() -> Self {
+impl Demographics {
+    pub fn new() -> Self {
         Self {
+            rng: rand::thread_rng(),
             name: NameGenerator::new(),
             sex: Division {
                 weights: &[0.8, 0.2],
@@ -124,6 +130,26 @@ impl Default for Demographics {
                 },
             },
         }
+    }
+
+    pub fn sex(&mut self) -> Sex {
+        self.sex.gen(&mut self.rng).clone()
+    }
+
+    pub fn name(&mut self, sex: &Sex) -> Name {
+        self.name.gen(sex)
+    }
+
+    pub fn age(&mut self, sex: &Sex) -> u8 {
+        self.age.gen(&mut self.rng,sex) as u8
+    }
+
+    pub fn weight(&mut self, sex: &Sex) -> u16 {
+        self.weight.gen(&mut self.rng,sex) as u16
+    }
+
+    pub fn height(&mut self, sex: &Sex) -> u16 {
+        self.height.gen(&mut self.rng,sex) as u16
     }
 }
 

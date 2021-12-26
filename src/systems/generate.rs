@@ -5,7 +5,7 @@ use bevy::{
 };
 
 use bevy_tilemap::prelude::*;
-
+use crate::systems::network::NetworkState;
 use crate::generation::{Area, Generator, LayerUse};
 use crate::state::{traits::*, Action, Context, State};
 use crate::resources::Label;
@@ -121,6 +121,7 @@ fn generator_initialize_system(
 
 fn generator_configure_system(
     mut state: ResMut<State>,
+    mut network: ResMut<NetworkState>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
     mut map_query: Query<&mut Tilemap>,
@@ -146,7 +147,7 @@ fn generator_configure_system(
             // and the user-provided factors for each tile attribute.
             state.textures.load(&asset_server, &texture_atlas);
 
-            let seed = state.terrain.seed.parse::<u32>().unwrap_or(0);
+            let seed = state.terrain.seed();
 
             let factors = state.factors.clone();
             let calendar = state.calendar.clone();
@@ -203,6 +204,10 @@ fn generator_configure_system(
 
             if let Err(e) = state.cursor.insert(&mut map) {
                 log::warn!("{:?}", e);
+            }
+
+            if network.is_server() {
+                network.sync();
             }
         }
     }

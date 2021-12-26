@@ -12,6 +12,7 @@ use crate::behavior::Pathfinder;
 use crate::generation::Unit;
 use crate::generation::id::Id;
 use crate::resources::Label;
+use crate::systems::network::{NetworkState,MessageData};
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -246,6 +247,7 @@ fn selected_highlight_system(
     windows: Res<Windows>,
     inputs: Res<Input<MouseButton>>,
     keyboard: Res<Input<KeyCode>>,
+    mut network: ResMut<NetworkState>,
     mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
@@ -295,6 +297,10 @@ fn selected_highlight_system(
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
+            for place in state.units.places().into_iter() {
+                network.send(MessageData::Moved(place));
+            }
+            
             state.units.select_none();
             selection.clear_path(&mut map,layer);
             selection.units.clear();

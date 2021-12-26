@@ -2,14 +2,16 @@ use bevy_tilemap::point::Point3;
 use once_cell::sync::Lazy;
 use std::collections::hash_map::HashMap;
 use std::sync::Mutex;
+use log::*;
 
 use crate::objects::Location;
 use crate::objects::Point;
 use crate::objects::Map;
 use crate::resources::{Spectrum, Textures, Label};
+use crate::state::Action;
 
 use crate::state::{traits::*, Calendar, Events};
-
+use crate::systems::network::Sync;
 use crate::generation::{bounds, Area, Attribute, Cursor, Factors, Generator, Layers, Unit};
 
 static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
@@ -102,6 +104,14 @@ impl Default for State {
     }
 }
 
+impl Terrain {
+    pub fn seed(&self) -> u32 {
+        self.seed
+            .parse::<u32>()
+            .unwrap_or(0)
+    }
+}
+
 macro_rules! context {
     () => {
         CONTEXT.lock().expect("Could not lock context")
@@ -165,6 +175,25 @@ impl Context {
 }
 
 impl State {
+    pub fn sync(&mut self, sync: Sync) {
+        self.terrain.seed = format!("{}",sync.seed);
+        self.calendar = Calendar::from_turn(sync.turn);
+        self.factors = sync.factors;
+        self.events.send(Action::UpdateTerrain);
+    }
+
+    pub fn seed(&self) -> u32 {
+        self.terrain.seed()
+    }
+
+    pub fn turn(&self) -> u32 {
+        self.calendar.turn()
+    }
+
+    pub fn factors(&self) -> Factors {
+        self.factors.clone()
+    }
+
     pub fn end_turn(&mut self) {
         self.calendar.advance();
         for unit in self.units.units_mut() {

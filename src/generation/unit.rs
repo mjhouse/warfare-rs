@@ -1,12 +1,26 @@
-use crate::generation::{id, LayerUse, Marker};
+use serde::{Deserialize, Serialize};
+use crate::generation::{id, Id, LayerUse, Marker};
 use crate::objects::Name;
 use crate::objects::Point;
 use crate::state::demographics::{Demographics, Sex};
 use crate::state::traits::*;
 use crate::state::State;
 use crate::resources::Label;
+use rand_pcg::Pcg64;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+pub struct Place {
+    pub id: Id,
+    pub point: Point,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+pub struct Created {
+    place: Place,
+    seed: usize,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Specialty {
     Infantry,
     Medical,
@@ -17,7 +31,7 @@ pub enum Specialty {
     // ... etc
 }
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Soldier {
     skill: Specialty,  // occupation
     name: Name,        // name
@@ -35,16 +49,16 @@ pub struct Soldier {
 
 impl Soldier {
     pub fn new(skill: &Specialty) -> Self {
-        let d = Demographics::default();
-        let sex = d.sex.gen();
-        let name = d.name.gen(sex);
+        let mut demo = Demographics::new();
+        let sex = demo.sex();
+        let name = demo.name(&sex);
         Self {
             skill: skill.clone(),
             name: name,
             sex: sex.clone(),
-            age: d.age.gen(sex) as u8,
-            weight: d.weight.gen(sex) as u16,
-            height: d.height.gen(sex) as u16,
+            age: demo.age(&sex),
+            weight: demo.weight(&sex),
+            height: demo.height(&sex),
             actions: (100, 100),
             health: (100, 100),
             veteran: (0, 100),
@@ -71,8 +85,8 @@ impl Soldier {
         self.actions.1
     }
 
-    pub fn name(&self) -> &str {
-        self.name.inner()
+    pub fn name(&self) -> String {
+        self.name.full()
     }
 
     pub fn age(&self) -> u8 {
@@ -112,7 +126,7 @@ impl Soldier {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Unit {
     /// globally unique id
     id: usize,
@@ -127,8 +141,8 @@ pub struct Unit {
     soldiers: Vec<Soldier>,
 }
 
-impl Unit {
-    pub fn new() -> Self {
+impl Default for Unit {
+    fn default() -> Self {
         Self {
             id: id::get(),
             marker: Marker {
@@ -140,6 +154,12 @@ impl Unit {
             soldiers: vec![],
         }
     }
+}
+
+impl Unit {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn with_specialty(mut self, specialty: Specialty) -> Self {
         self.specialty = specialty;
@@ -147,9 +167,8 @@ impl Unit {
     }
 
     pub fn with_soldiers(mut self, count: usize) -> Self {
-        for _ in 0..count {
-            self.soldiers.push(Soldier::new(&self.specialty));
-        }
+        self.soldiers.clear();
+        self.soldiers = Vec::with_capacity(count);
         self
     }
 
@@ -165,6 +184,11 @@ impl Unit {
             .expect("Must have unit layer");
 
         self.marker.texture = state.textures.get(Label::Unit);
+
+        for _ in 0..self.soldiers.capacity() {
+            self.soldiers.push(
+                Soldier::new(&self.specialty));
+        }
 
         self
     }
@@ -209,6 +233,13 @@ impl Unit {
 
     pub fn specialty(&self) -> Specialty {
         self.specialty.clone()
+    }
+
+    pub fn placement(&self) -> Place {
+        Place {
+            id: self.id.clone(),
+            point: self.position().clone()
+        }
     }
 }
 

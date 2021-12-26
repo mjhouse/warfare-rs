@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use crate::generation::id;
 use crate::objects::Point;
 use crate::state::traits::*;
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Marker {
     /// layer for this unit
     pub layer: usize,

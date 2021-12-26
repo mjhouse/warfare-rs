@@ -2,7 +2,7 @@ use crate::generation::{Biome, Soil};
 use crate::state::traits::HasId;
 use crate::state::{Action, State};
 use crate::systems::selection::Selection;
-use crate::systems::network::NetworkState;
+use crate::systems::network::{NetworkState,MessageData};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
@@ -322,10 +322,17 @@ fn gui_display_system(
             });
 
             ui.text_edit_singleline(&mut gui.message);
-            if ui.button("Send").clicked() {
-                network.send(gui.message.clone());
-                gui.message.clear();
-            }
+
+            ui.horizontal(|ui| {
+                if ui.button("Send").clicked() {
+                    network.send(MessageData::Chat(gui.message.clone()));
+                    gui.message.clear();
+                }
+
+                if ui.button("Sync").clicked() {
+                    network.sync();
+                }
+            });
 
             // TODO: fix this bullshit
             if let Some(mut p) = window.cursor_position() {

@@ -23,4 +23,6 @@ pub use area::{bounds, Area, Attribute};
 
 pub use marker::{Cursor, Marker};
 
-pub use unit::{Specialty, Unit};
+pub use unit::{Specialty, Unit, Place};
+
+pub use id::Id;
