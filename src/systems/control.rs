@@ -4,7 +4,8 @@ use bevy_tilemap::{Tile, Tilemap};
 use crate::generation::{LayerUse, Specialty, Unit};
 use crate::state::{traits::*, Action, State};
 use crate::systems::selection::Selection;
-use crate::systems::network::{NetworkState,MessageData};
+use crate::systems::network::NetworkState;
+use crate::networking::messages::*;
 
 pub struct ControlPlugin;
 
@@ -39,7 +40,12 @@ fn control_place_system(
     
                 unit.insert(&mut tilemap);
                 state.units.add(point,unit.clone());
-                network.send(MessageData::Created(unit));
+
+                let player_id = network.id();
+                network.send(MessageData::Create(UnitData {
+                    player: player_id,
+                    unit:   unit,
+                }));
             }
             state.events.clear(Action::PlaceUnit);
         }

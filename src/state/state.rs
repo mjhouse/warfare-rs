@@ -11,7 +11,7 @@ use crate::resources::{Spectrum, Textures, Label};
 use crate::state::Action;
 
 use crate::state::{traits::*, Calendar, Events};
-use crate::systems::network::Sync;
+use crate::networking::messages::*;
 use crate::generation::{bounds, Area, Attribute, Cursor, Factors, Generator, Layers, Unit};
 
 static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
@@ -175,10 +175,10 @@ impl Context {
 }
 
 impl State {
-    pub fn sync(&mut self, sync: Sync) {
-        self.terrain.seed = format!("{}",sync.seed);
-        self.calendar = Calendar::from_turn(sync.turn);
-        self.factors = sync.factors;
+    pub fn sync(&mut self, data: TerrainData) {
+        self.terrain.seed = format!("{}",data.seed);
+        self.calendar = Calendar::from_turn(data.turn);
+        self.factors = data.factors;
         self.events.send(Action::UpdateTerrain);
     }
 

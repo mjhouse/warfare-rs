@@ -6,12 +6,13 @@ use std::collections::HashMap;
 
 use crate::state::{traits::*, State};
 use crate::networking::messages::*;
-use crate::generation::{Unit,Place,Id};
+use crate::generation::{Unit,Id,id};
 use crate::generation::Factors;
 use crate::resources::Label;
 use bevy_tilemap::Tilemap;
 
 use itertools::Itertools;
+use multi_map::MultiMap;
 
 pub struct NetworkPlugin;
 pub struct Player(ConnectionId);
@@ -22,11 +23,10 @@ const DCON: usize = 2;
 const SEND: usize = 3;
 const SYNC: usize = 4;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct Sync {
-    pub seed: u32,
-    pub turn: u32,
-    pub factors: Factors
+pub struct Connection {
+    connection_id: ConnectionId,
+    entity: Entity,
+    id: Id,
 }
 
 #[derive(Clone,Eq,PartialEq)]
@@ -36,22 +36,14 @@ pub enum Mode {
     Client,
 }
 
-#[derive(Clone)]
-pub enum MessageData {
-    Empty,
-    Chat(String),
-    Created(Unit),
-    Moved(Place),
-    Sync(Sync),
-}
-
 pub struct NetworkState {
     flags: [bool;5],
     mode: Mode,
     address: String,
     port: u16,
     messages: Vec<MessageData>,
-    pub players: HashMap<ConnectionId,Entity>,
+    players: MultiMap<ConnectionId,Id,Entity>,
+    player:  Id,
 }
 
 impl Default for NetworkState {
@@ -62,7 +54,8 @@ impl Default for NetworkState {
             address: String::new(),
             port: 0,
             messages: vec![],
-            players: HashMap::new()
+            players: MultiMap::new(),
+            player: id::get(),
         }
     }
 }
@@ -116,6 +109,10 @@ impl NetworkState {
         self.flags[SYNC] 
     }
 
+    pub fn id(&self) -> Id {
+        self.player.clone()
+    }
+
     pub fn mode(&self) -> Mode {
         self.mode.clone()
     }
@@ -134,6 +131,10 @@ impl NetworkState {
 
     pub fn set_client(&mut self) {
         self.mode = Mode::Client;
+    }
+
+    pub fn set_id(&mut self, id: Id) {
+        self.player = id;
     }
 
     pub fn clear_mode(&mut self) {
@@ -175,7 +176,7 @@ fn host_system(
     match network.address() {
         Some(address) => match server.listen(address) {
             Ok(()) => {
-                info!("listening on {:?}",address);
+                info!("listening on {:?} (as player {})",address,network.id());
                 network.set_server();
             },
             Err(e) => error!("listening failed: {}",e),
@@ -253,18 +254,29 @@ fn event_system(
 
     for event in events.iter() {
         match event {
-            ServerNetworkEvent::Connected(id) => {
-                info!("player connected; {}", id);
-                let entity_id = commands.spawn().insert(Player(*id)).id();
-                network.players.insert(*id,entity_id);
-
+            ServerNetworkEvent::Connected(connection) => {
+                info!("player connected; {}", connection);
+                let id = id::get();
+                let conn = connection.clone();
+                let entity = commands
+                    .spawn()
+                    .insert(Player(conn.clone()))
+                    .id();
+                
+                network.players.insert(conn.clone(),id,entity);
                 server.broadcast(JoinMessage::default());
+
+                info!("sending confirm; {}", id);
+                server.send_message(conn,ConfirmMessage::new(ConfirmData {
+                    player: id,
+                    motd: "Welcome to Warfare!".into(),
+                }));
             },
-            ServerNetworkEvent::Disconnected(id) => {
-                info!("player disconnected; {}", id);
-                if let Some(entity_id) = network.players.remove(id)
+            ServerNetworkEvent::Disconnected(connection) => {
+                info!("player disconnected; {}", connection);
+                if let Some(entity) = network.players.remove(connection)
                 {
-                    commands.entity(entity_id).despawn()
+                    commands.entity(entity).despawn()
                 }
             },
             _ => ()
@@ -277,9 +289,9 @@ fn server_receive_system(
     server: Res<NetworkServer>,
     mut network: ResMut<NetworkState>,
     mut map_query: Query<&mut Tilemap>,
-    mut unit_messages: EventReader<NetworkData<UnitMessage>>,
+    mut unit_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
-    mut sync_messages: EventReader<NetworkData<SyncMessage>>,
+    mut sync_messages: EventReader<NetworkData<UpdateMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
     mut join_messages: EventReader<NetworkData<JoinMessage>>,
 ) {
@@ -294,7 +306,7 @@ fn server_receive_system(
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
     for message in unit_messages.iter() {
-        let mut unit = message.value.clone();
+        let mut unit = message.value().unit.clone();
         let point = unit.position().clone();
 
         *(unit.texture_mut()) = state.textures.get(Label::Unit);
@@ -303,15 +315,15 @@ fn server_receive_system(
         state.units.add(point,unit);
     }
 
-    for (point,messages) in move_messages.iter().group_by(|m| m.value.point).into_iter() {
+    for (point,messages) in move_messages.iter().group_by(|m| m.value().point).into_iter() {
         let ids = messages
             .into_iter()
-            .map(|m| m.value.id)
+            .map(|m| m.value().unit)
             .collect();
         state.units.select(&ids);
         state.units.move_selection(&mut tilemap,&point);
         state.units.select_none_free();
-}
+    }
 
     // if the server receives a sync message, it just echos
     // it's state back to the clients.
@@ -321,10 +333,13 @@ fn server_receive_system(
     }
 
     for message in chat_messages.iter() {
-        info!("message: {}",message.value);
-        server.broadcast(ChatMessage {
-            value: message.value.clone(),
-        });
+        let id = message.value().player.clone();
+        let msg = message.value().message.clone();
+        info!("message: {}",msg);
+        server.broadcast(ChatMessage::new(ChatData {
+            player: id,
+            message: msg,
+        }));
     }
 
     for join in join_messages.iter() {
@@ -337,11 +352,12 @@ fn client_receive_system(
     server: Res<NetworkServer>,
     mut network: ResMut<NetworkState>,
     mut map_query: Query<&mut Tilemap>,
-    mut unit_messages: EventReader<NetworkData<UnitMessage>>,
+    mut unit_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
-    mut sync_messages: EventReader<NetworkData<SyncMessage>>,
+    mut sync_messages: EventReader<NetworkData<UpdateMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
     mut join_messages: EventReader<NetworkData<JoinMessage>>,
+    mut conn_messages: EventReader<NetworkData<ConfirmMessage>>,
 ) {
     if !state.loaded {
         return;
@@ -354,7 +370,7 @@ fn client_receive_system(
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
     for message in unit_messages.iter() {
-        let mut unit = message.value.clone();
+        let mut unit = message.value().unit.clone();
         let point = unit.position().clone();
 
         *(unit.texture_mut()) = state.textures.get(Label::Unit);
@@ -363,10 +379,10 @@ fn client_receive_system(
         state.units.add(point,unit);
     }
 
-    for (point,messages) in move_messages.iter().group_by(|m| m.value.point).into_iter() {
+    for (point,messages) in move_messages.iter().group_by(|m| m.value().point).into_iter() {
             let ids = messages
                 .into_iter()
-                .map(|m| m.value.id)
+                .map(|m| m.value().unit)
                 .collect();
             state.units.select(&ids);
             state.units.move_selection(&mut tilemap,&point);
@@ -374,16 +390,24 @@ fn client_receive_system(
     }
 
     for message in unit_messages.iter() {
-        dbg!(&message.value.id());
+        dbg!(&message.value().unit);
     }
 
     for message in sync_messages.iter() {
         info!("synchronizing with server");
-        state.sync(message.value.clone());
+        state.sync(message.value().clone());
     }
 
     for message in chat_messages.iter() {
-        info!("message: {}",message.value);
+        info!("message: {}",message.value().message);
+    }
+
+    for message in conn_messages.iter() {
+        let id = message.value().player.clone();
+        let motd = message.value().motd.clone();
+        network.set_id(id);
+        info!("ID:   {}",id);
+        info!("MOTD: {}",motd);
     }
 }
 
@@ -409,9 +433,9 @@ fn server_send_system(
     for message in network.messages.drain(..) {
         match message {
             MessageData::Chat(v) => server.broadcast(ChatMessage::new(v)),
-            MessageData::Sync(v) => server.broadcast(SyncMessage::new(v)),
-            MessageData::Created(v) => server.broadcast(UnitMessage::new(v)),
-            MessageData::Moved(v) => server.broadcast(MoveMessage::new(v)),
+            MessageData::Update(v) => server.broadcast(UpdateMessage::new(v)),
+            MessageData::Create(v) => server.broadcast(CreateMessage::new(v)),
+            MessageData::Move(v) => server.broadcast(MoveMessage::new(v)),
             _ => (),
         };
     }
@@ -439,9 +463,9 @@ fn client_send_system(
 
     for message in network.messages.drain(..) {
         match message {
-            MessageData::Chat(v)    => { client.send_message(ChatMessage::new(v)); },
-            MessageData::Created(v) => { client.send_message(UnitMessage::new(v)); },
-            MessageData::Moved(v)   => { client.send_message(MoveMessage::new(v)); },
+            MessageData::Chat(v)   => { client.send_message(ChatMessage::new(v)); },
+            MessageData::Create(v) => { client.send_message(CreateMessage::new(v)); },
+            MessageData::Move(v)   => { client.send_message(MoveMessage::new(v)); },
             _ => (),
         };
     }
@@ -467,7 +491,7 @@ fn sync_system(
         return;
     }
 
-    let sync = MessageData::Sync(Sync {
+    let sync = MessageData::Update(TerrainData {
         seed: state.seed(),
         turn: state.turn(),
         factors: state.factors(),

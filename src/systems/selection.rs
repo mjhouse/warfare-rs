@@ -12,7 +12,8 @@ use crate::behavior::Pathfinder;
 use crate::generation::Unit;
 use crate::generation::id::Id;
 use crate::resources::Label;
-use crate::systems::network::{NetworkState,MessageData};
+use crate::systems::network::NetworkState;
+use crate::networking::messages::*;
 
 use crate::objects::Point;
 pub struct SelectionPlugin;
@@ -297,8 +298,14 @@ fn selected_highlight_system(
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
-            for place in state.units.places().into_iter() {
-                network.send(MessageData::Moved(place));
+            for s in state.units.selected().iter() {
+                let player_id = network.id();
+                network.send(MessageData::Move(MoveData {
+                    player: player_id,
+                    unit: s.id.clone(),
+                    point: Point::from_index(s.end as i32),
+                    actions: s.actions.0.saturating_sub(s.actions.1),
+                }));
             }
             
             state.units.select_none();

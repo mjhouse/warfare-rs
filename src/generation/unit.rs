@@ -8,18 +8,6 @@ use crate::state::State;
 use crate::resources::Label;
 use rand_pcg::Pcg64;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
-pub struct Place {
-    pub id: Id,
-    pub point: Point,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
-pub struct Created {
-    place: Place,
-    seed: usize,
-}
-
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Specialty {
     Infantry,
@@ -233,13 +221,6 @@ impl Unit {
 
     pub fn specialty(&self) -> Specialty {
         self.specialty.clone()
-    }
-
-    pub fn placement(&self) -> Place {
-        Place {
-            id: self.id.clone(),
-            point: self.position().clone()
-        }
     }
 }
 

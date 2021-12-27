@@ -2,7 +2,8 @@ use crate::generation::{Biome, Soil};
 use crate::state::traits::HasId;
 use crate::state::{Action, State};
 use crate::systems::selection::Selection;
-use crate::systems::network::{NetworkState,MessageData};
+use crate::systems::network::NetworkState;
+use crate::networking::messages::*;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
@@ -325,7 +326,11 @@ fn gui_display_system(
 
             ui.horizontal(|ui| {
                 if ui.button("Send").clicked() {
-                    network.send(MessageData::Chat(gui.message.clone()));
+                    let player_id = network.id();
+                    network.send(MessageData::Chat(ChatData {
+                        player: player_id,
+                        message: gui.message.clone(),
+                    }));
                     gui.message.clear();
                 }
 

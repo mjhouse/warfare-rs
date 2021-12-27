@@ -1,5 +1,5 @@
 use crate::generation::id::Id;
-use crate::generation::{Place,Unit};
+use crate::generation::Unit;
 use crate::objects::Point;
 use crate::state::traits::HasId;
 use crate::state::Context;
@@ -158,14 +158,8 @@ impl Map {
             .unwrap_or(0)
     }
 
-    pub fn places(&self) -> Vec<Place> {
-        self.selected
-            .iter()
-            .map(|s| Place {
-                id: s.id,
-                point: Point::from_index(s.end as i32),
-            })
-            .collect()
+    pub fn selected(&self) -> Vec<Selection> {
+        self.selected.clone()
     }
 
     pub fn has_unit(&self, point: &Point, id: &Id) -> bool {
