@@ -40,12 +40,7 @@ fn control_place_system(
     
                 unit.insert(&mut tilemap);
                 state.units.add(point,unit.clone());
-
-                let player_id = network.id();
-                network.send(MessageData::Create(UnitData {
-                    player: player_id,
-                    unit:   unit,
-                }));
+                network.send_create_event(unit);
             }
             state.events.clear(Action::PlaceUnit);
         }

@@ -1,5 +1,7 @@
-use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use bevy::prelude::*;
+use bevy_tilemap::Tilemap;
 
 use bevy_spicy_networking::{
     ClientMessage,
@@ -12,6 +14,12 @@ use bevy_spicy_networking::{
 use crate::generation::Factors;
 use crate::generation::{Unit,id::Id};
 use crate::objects::Point;
+
+use crate::systems::network::NetworkState;
+use crate::systems::gui::GuiState;
+use crate::state::State;
+use crate::resources::Label;
+use crate::state::traits::*;
 
 macro_rules! name {
     ( $n: ident ) => {
@@ -29,19 +37,23 @@ macro_rules! register {
 macro_rules! message {
     ( $n: ident ( $v: ty )) => {
         #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-        pub struct $n($v);
+        pub struct $n {
+            inner: $v,
+        }
 
         impl $n {
             pub fn new(v: $v) -> Self {
-                Self(v)
+                Self { 
+                    inner: v,
+                }
             }
 
             pub fn value(&self) -> &$v {
-                &self.0
+                &self.inner
             }
 
             pub fn take(self) -> $v {
-                self.0
+                self.inner
             }
         }
 
@@ -64,20 +76,27 @@ pub struct MessagePlugin;
 pub struct EmptyData;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct JoinData {
+    pub sender: Id,
+    pub player: Id,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ConfirmData {
+    pub sender: Id,
     pub player: Id,
     pub motd: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct UnitData {
-    pub player: Id,
+    pub sender: Id,
     pub unit: Unit,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MoveData {
-    pub player: Id,
+    pub sender: Id,
     pub unit: Id,
     pub point: Point,
     pub actions: u8,
@@ -85,12 +104,13 @@ pub struct MoveData {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ChatData {
-    pub player: Id,
+    pub sender: Id,
     pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct TerrainData {
+    pub sender: Id,
     pub seed: u32,
     pub turn: u32,
     pub factors: Factors
@@ -98,7 +118,7 @@ pub struct TerrainData {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum MessageData {
-    Join(EmptyData),     // player joined
+    Join(JoinData),      // player joined
     Confirm(ConfirmData),// confirm connection
     Create(UnitData),    // unit created
     Move(MoveData),      // unit moved
@@ -107,7 +127,7 @@ pub enum MessageData {
     Refresh(EmptyData),  // request update
 }
 
-message!(JoinMessage(EmptyData));
+message!(JoinMessage(JoinData));
 message!(ConfirmMessage(ConfirmData));
 message!(CreateMessage(UnitData));
 message!(MoveMessage(MoveData));
@@ -127,91 +147,62 @@ impl Plugin for MessagePlugin {
     }
 }
 
+impl JoinMessage {
+    pub fn apply(&self, gui: &mut GuiState) {
+        // add a visible join message to chat window
+        let data = self.value();
+        let message = format!("{} joined the game",data.player);
+        gui.add_message(data.sender,message);
+    }
+}
 
+impl ConfirmMessage {
+    pub fn apply(&self, network: &mut NetworkState) {
+        // update player id to match the one issued by server
+        let data = self.value();
+        network.set_id(data.player);
+        network.set_motd(data.motd.clone());
+    }
+}
 
+impl CreateMessage {
+    pub fn apply(&self, map: &mut Tilemap, state: &mut State) {
+        // add new unit to tilemap and unit map if it doesn't exist
+        let data = self.value();
+        let mut unit = data.unit.clone();
+        let point = unit.position().clone();
 
+        *(unit.texture_mut()) = state.textures.get(Label::Unit);
 
+        unit.insert(map);
+        state.units.add(point,unit);
+    }
+}
 
+impl MoveMessage {
+    pub fn apply(&self, /* map: &mut Tilemap, state: &mut State */) {
+        // update position of unit in tilemap and unit map
+    }
+}
 
+impl ChatMessage {
+    pub fn apply(&self, gui: &mut GuiState) {
+        // add visible chat message to chat window
+        let data = self.value();
+        gui.add_message(data.sender,data.message.clone());
+    }
+}
 
+impl UpdateMessage {
+    pub fn apply(&self, state: &mut State) {
+        // update terrain and factors then signal re-generate
+        let data = self.value();
+        state.sync(data.clone());
+    }
+}
 
-
-
-
-// macro_rules! register {
-//     ( $a: ident, $n: ty ) => {
-//         $a.listen_for_client_message::<$n>();
-//         $a.listen_for_server_message::<$n>();
-//     }
-// }
-
-// macro_rules! impl_message {
-//     ( $n: ident ) => {
-//         impl_message!($n,u8);
-//     };
-//     ( $n: ident, $v: ty ) => {
-//         #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-//         pub struct $n {
-//             pub value: $v
-//         }
-
-//         impl $n {
-//             pub fn new(value: $v) -> Self {
-//                 Self { value }
-//             }
-//         }
-
-//         #[typetag::serde]
-//         impl NetworkMessage for $n {}
-
-//         impl ServerMessage for $n {
-//             const NAME: &'static str = name!($n);
-//         }
-        
-//         impl ClientMessage for $n {
-//             const NAME: &'static str = name!($n);
-//         }
-//     };
-// }
-
-// #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-// pub struct Sync {
-//     pub seed: u32,
-//     pub turn: u32,
-//     pub factors: Factors
-// }
-
-// #[derive(Clone)]
-// pub enum MessageData {
-//     Empty,
-//     Chat(String),
-//     Created(Unit),
-//     Moved(Place),
-//     Sync(Sync),
-// }
-
-// impl_message!(JoinMessage);
-
-// impl_message!(ConfirmMessage,Id);
-
-// impl_message!(UnitMessage,Unit);
-
-// impl_message!(MoveMessage,Place);
-
-// impl_message!(ChatMessage,String);
-
-// impl_message!(SyncMessage,Sync);
-
-// impl_message!(RefreshMessage);
-
-// impl Plugin for MessagePlugin {
-//     fn build(&self, app: &mut AppBuilder) {
-//         register!(app,JoinMessage);
-//         register!(app,ConfirmMessage);
-//         register!(app,UnitMessage);
-//         register!(app,MoveMessage);
-//         register!(app,ChatMessage);
-//         register!(app,SyncMessage);
-//         register!(app,RefreshMessage);
-//     }
-// }
+impl RefreshMessage {
+    pub fn apply(&self, /* network: &mut Network */) {
+        // enqueue an update message in reply to sender
+    }
+}

@@ -44,6 +44,7 @@ pub struct Map {
 }
 
 impl Selection {
+
     pub fn new(point: &Point, unit: &Unit) -> Self {
         Self {
             id: *unit.id(),
@@ -55,8 +56,26 @@ impl Selection {
             ),
         }
     }
+
     pub fn update(&mut self, point: &Point) {
         self.end = point.as_index() as usize;
+    }
+
+    pub fn start_point(&self) -> Point {
+        Point::from_index(self.start as i32)
+    }
+
+    pub fn end_point(&self) -> Point {
+        Point::from_index(self.end as i32)
+    }
+
+    pub fn cost(&self) -> u8 {
+        let (i,c) = self.actions;
+        i.saturating_sub(c)
+    }
+
+    pub fn unit(&self) -> Id {
+        self.id.clone()
     }
 }
 

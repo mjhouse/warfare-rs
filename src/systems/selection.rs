@@ -299,13 +299,7 @@ fn selected_highlight_system(
         // whatever units are selected
         else if inputs.just_released(selection.button) {
             for s in state.units.selected().iter() {
-                let player_id = network.id();
-                network.send(MessageData::Move(MoveData {
-                    player: player_id,
-                    unit: s.id.clone(),
-                    point: Point::from_index(s.end as i32),
-                    actions: s.actions.0.saturating_sub(s.actions.1),
-                }));
+                network.send_move_event(s);
             }
             
             state.units.select_none();

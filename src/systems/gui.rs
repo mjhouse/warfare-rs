@@ -4,25 +4,44 @@ use crate::state::{Action, State};
 use crate::systems::selection::Selection;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
+use crate::generation::Id;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 
+pub struct Message {
+    player: Id,
+    content: String,
+}
+
 pub struct GuiState {
     network: bool,
+    chat: bool,
     ip: String,
     port: u16,
     message: String,
+    pub history: Vec<Message>,
 }
 
 impl Default for GuiState {
     fn default() -> Self {
         Self {
             network: false,
+            chat: false,
             ip: "127.0.0.1".into(),
             port: 8080,
             message: "".into(),
+            history: vec![],
         }
+    }
+}
+
+impl GuiState {
+    pub fn add_message(&mut self, player: Id, content: String) {
+        self.history.push(Message {
+            player,
+            content,
+        });
     }
 }
 
@@ -146,6 +165,12 @@ fn gui_display_system(
 
                     if ui.button("Network").clicked() {
                         gui.network = !gui.network;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    if ui.button("Chat").clicked() {
+                        gui.chat = !gui.chat;
                     }
                 });
 
@@ -322,20 +347,72 @@ fn gui_display_system(
                 }
             });
 
-            ui.text_edit_singleline(&mut gui.message);
+            // TODO: fix this bullshit
+            if let Some(mut p) = window.cursor_position() {
+                let mut r = ui.min_rect();
+                let s = ui.style();
 
-            ui.horizontal(|ui| {
-                if ui.button("Send").clicked() {
-                    let player_id = network.id();
-                    network.send(MessageData::Chat(ChatData {
-                        player: player_id,
-                        message: gui.message.clone(),
-                    }));
-                    gui.message.clear();
+                p.y = window.height() - p.y;
+
+                let pad = s.spacing.window_padding;
+                let side = s.interaction.resize_grab_radius_side;
+
+                r.min.x -= pad.x + side;
+                r.max.x += pad.x + side + 5.;
+                r.min.y -= pad.y + side + 25.;
+                r.max.y += pad.y + side;
+
+                if p.x >= r.min.x && p.x <= r.max.x && p.y >= r.min.y && p.y <= r.max.y {
+                    selection.hovering = false;
                 }
+            } else {
+                selection.hovering = false;
+            }
+        });
+    }
 
-                if ui.button("Sync").clicked() {
-                    network.sync();
+    if gui.chat {
+        egui::Window::new("Chat")
+        .default_width(300.0)
+        .default_height(200.0)
+        .show(context.ctx(), |ui| {
+            ui.set_width(ui.available_width());
+            ui.set_height(ui.available_height());
+
+            // let text_style = egui::TextStyle::Body;
+            // let row_height = ui.fonts()[text_style].row_height();
+
+            // egui::ScrollArea::vertical()
+            //     .max_height(200.)
+            //     .stick_to_bottom()
+            //     .always_show_scroll(true)
+            //     .show_rows(ui, row_height, 100, |ui, range| {
+            //         if let Some(messages) = gui.history.get(range) {
+            //             for message in messages.iter() {
+            //                 let player = &message.player;
+            //                 let content = &message.content;
+            //                 ui.label(format!("{}: {}",player,content));
+            //             }
+            //         }
+            //     });
+
+            egui::ScrollArea::vertical()
+                .max_height(400.)
+                .stick_to_bottom()
+                .show(ui, |ui| {
+                    for message in gui.history.iter() {
+                        let player = &message.player;
+                        let content = &message.content;
+                        ui.label(format!("{}: {}",player,content));
+                    }
+                });
+
+            ui.add_space(10.);
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(&mut gui.message);
+                if ui.button("Send").clicked() {
+                    network.send_chat_event(gui.message.clone());
+                    gui.message.clear();
                 }
             });
 
@@ -362,7 +439,7 @@ fn gui_display_system(
             }
         });
     }
-
+    
     selection.interacting = hovering;
 }
 
