@@ -413,7 +413,14 @@ fn gui_display_system(
 
             ui.add_space(10.);
             ui.horizontal(|ui| {
-                ui.text_edit_singleline(&mut gui.message);
+                let response = ui.text_edit_singleline(&mut gui.message);
+
+                if keyboard.just_pressed(KeyCode::Return) && response.lost_focus() {
+                    network.send_chat_event(gui.message.clone());
+                    gui.message.clear();
+                    response.request_focus();
+                }
+
                 if ui.button("Send").clicked() {
                     network.send_chat_event(gui.message.clone());
                     gui.message.clear();
