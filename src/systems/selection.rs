@@ -298,10 +298,7 @@ fn selected_highlight_system(
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
-            for s in state.units.selected().iter() {
-                network.send_move_event(s);
-            }
-            
+            network.send_move_event(&state.units.selected());
             state.units.select_none();
             selection.clear_path(&mut map,layer);
             selection.units.clear();

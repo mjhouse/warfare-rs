@@ -27,6 +27,7 @@ itertools = "0.10.3"
 # ordered hashmap for unit position
 indexmap = "1.7.0"
 multi-map = "1.3.0"
+bimap = "0.6.1"
 
 # logging and error handling
 log = "0.4.14"

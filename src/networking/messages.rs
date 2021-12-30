@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use itertools::Itertools;
 
 use bevy::prelude::*;
 use bevy_tilemap::Tilemap;
@@ -7,12 +8,13 @@ use bevy_spicy_networking::{
     ClientMessage,
     NetworkMessage,
     ServerMessage,
+    NetworkData,
     AppNetworkClientMessage,
-    AppNetworkServerMessage
+    AppNetworkServerMessage,
 };
 
 use crate::generation::Factors;
-use crate::generation::{Unit,id::Id};
+use crate::generation::{Unit,Id,PlayerId};
 use crate::objects::Point;
 
 use crate::systems::network::NetworkState;
@@ -67,50 +69,77 @@ macro_rules! message {
         impl ClientMessage for $n {
             const NAME: &'static str = name!($n);
         }
+
+        impl HasTarget for $n {
+            fn target(&self) -> Option<PlayerId> {
+                self.inner.target
+            }
+        }
+
+        impl From<&NetworkData<$n>> for $n {
+            fn from(data: &NetworkData<$n>) -> $n {
+                (*data).clone()
+            }
+        }
+
+        impl From<$v> for $n {
+            fn from(data: $v) -> $n {
+                Self::new(data)
+            }
+        }
     };
+}
+
+pub trait HasTarget {
+    fn target(&self) -> Option<PlayerId>;
 }
 
 pub struct MessagePlugin;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct EmptyData;
+pub struct EmptyData {
+    pub target: Option<PlayerId>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct JoinData {
-    pub sender: Id,
-    pub player: Id,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
+    pub player: PlayerId,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ConfirmData {
-    pub sender: Id,
-    pub player: Id,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
     pub motd: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct UnitData {
-    pub sender: Id,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
     pub unit: Unit,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MoveData {
-    pub sender: Id,
-    pub unit: Id,
-    pub point: Point,
-    pub actions: u8,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
+    pub moves: Vec<(Id,Point,u8)>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ChatData {
-    pub sender: Id,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
     pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct TerrainData {
-    pub sender: Id,
+    pub target: Option<PlayerId>,
+    pub sender: PlayerId,
     pub seed: u32,
     pub turn: u32,
     pub factors: Factors
@@ -159,9 +188,18 @@ impl JoinMessage {
 impl ConfirmMessage {
     pub fn apply(&self, network: &mut NetworkState) {
         // update player id to match the one issued by server
-        let data = self.value();
-        network.set_id(data.player);
-        network.set_motd(data.motd.clone());
+        if !network.is_client() {
+            warn!("ConfirmMessage applied to server");
+            return;
+        }
+
+        match self.target() {
+            Some(id) => {
+                network.set_id(id);
+                network.set_motd(self.value().motd.clone());
+            },
+            None => warn!("ConfirmMessage with no id"),
+        }
     }
 }
 
@@ -180,13 +218,23 @@ impl CreateMessage {
 }
 
 impl MoveMessage {
-    pub fn apply(&self, /* map: &mut Tilemap, state: &mut State */) {
-        // update position of unit in tilemap and unit map
+    pub fn apply(&self, map: &mut Tilemap, state: &mut State) {
+        let data = self.value();
+        for (point,moves) in data.moves.iter().group_by(|m| m.1).into_iter() {
+            let ids = moves
+                .into_iter()
+                .map(|m| m.0)
+                .collect();
+            state.units.select(&ids);
+            state.units.move_selection(map,&point);
+            state.units.select_none_free();
+            // TODO: apply actions to moved units
+        }
     }
 }
 
 impl ChatMessage {
-    pub fn apply(&self, gui: &mut GuiState) {
+    pub fn apply(&self, network: &NetworkState, gui: &mut GuiState) {
         // add visible chat message to chat window
         let data = self.value();
         gui.add_message(data.sender,data.message.clone());
@@ -194,15 +242,19 @@ impl ChatMessage {
 }
 
 impl UpdateMessage {
-    pub fn apply(&self, state: &mut State) {
+    pub fn apply(&self, network: &NetworkState, state: &mut State) {
         // update terrain and factors then signal re-generate
-        let data = self.value();
-        state.sync(data.clone());
+        if network.is_client() {
+            state.sync(self.value().clone());
+        }
     }
 }
 
 impl RefreshMessage {
-    pub fn apply(&self, /* network: &mut Network */) {
-        // enqueue an update message in reply to sender
+    pub fn apply(&self, network: &mut NetworkState, state: &State) {
+        // request update event from network to all clients
+        if network.is_server() {
+            network.send_update_event(&state);
+        }
     }
 }

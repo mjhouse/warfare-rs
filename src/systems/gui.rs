@@ -4,13 +4,13 @@ use crate::state::{Action, State};
 use crate::systems::selection::Selection;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
-use crate::generation::Id;
+use crate::generation::{PlayerId,Id};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 
 pub struct Message {
-    player: Id,
+    player: PlayerId,
     content: String,
 }
 
@@ -37,7 +37,7 @@ impl Default for GuiState {
 }
 
 impl GuiState {
-    pub fn add_message(&mut self, player: Id, content: String) {
+    pub fn add_message(&mut self, player: PlayerId, content: String) {
         self.history.push(Message {
             player,
             content,
@@ -374,7 +374,7 @@ fn gui_display_system(
     if gui.chat {
         egui::Window::new("Chat")
         .default_width(300.0)
-        .default_height(200.0)
+        .default_height(400.0)
         .show(context.ctx(), |ui| {
             ui.set_width(ui.available_width());
             ui.set_height(ui.available_height());
@@ -400,10 +400,14 @@ fn gui_display_system(
                 .max_height(400.)
                 .stick_to_bottom()
                 .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.set_height(ui.available_height());
+
                     for message in gui.history.iter() {
                         let player = &message.player;
                         let content = &message.content;
                         ui.label(format!("{}: {}",player,content));
+                        ui.add_space(5.);
                     }
                 });
 

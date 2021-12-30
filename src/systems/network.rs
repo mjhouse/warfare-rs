@@ -1,37 +1,39 @@
 use serde::{Deserialize, Serialize};
-use bevy::prelude::*;
-use bevy_spicy_networking::{ConnectionId, NetworkData, NetworkServer, NetworkSettings, NetworkClient, ServerNetworkEvent};
 use std::net::SocketAddr;
-use std::collections::HashMap;
 use std::ops::{Deref,DerefMut};
+use itertools::Itertools;
+use bimap::hash::BiHashMap;
+
+use bevy::prelude::*;
+use bevy_tilemap::Tilemap;
+use bevy_spicy_networking::{
+    ClientMessage,
+    NetworkMessage,
+    ServerMessage,
+    ConnectionId,
+    NetworkData,
+    NetworkServer,
+    NetworkSettings,
+    NetworkClient,
+    ServerNetworkEvent,
+};
 
 use crate::state::{traits::*, State};
 use crate::networking::messages::*;
-use crate::generation::{Unit,Id,id};
+use crate::generation::{Unit,Id,PlayerId};
 use crate::generation::Factors;
 use crate::resources::Label;
 use crate::objects::Selection;
 use crate::systems::gui::GuiState;
 
-use bevy_tilemap::Tilemap;
-
-use itertools::Itertools;
-use multi_map::MultiMap;
-
 pub struct NetworkPlugin;
-pub struct Player(ConnectionId);
+
+const COUNT: usize = 4;
 
 const HOST: usize = 0;
 const CONN: usize = 1;
 const DCON: usize = 2;
 const SEND: usize = 3;
-const SYNC: usize = 4;
-
-pub struct Connection {
-    connection_id: ConnectionId,
-    entity: Entity,
-    id: Id,
-}
 
 #[derive(Clone,Eq,PartialEq)]
 pub enum Mode {
@@ -45,14 +47,14 @@ pub struct NetworkEvents {
 }
 
 pub struct NetworkState {
-    flags: [bool;5],
+    flags: [bool;COUNT],
     mode: Mode,
     address: String,
     port: u16,
     motd: String,
     events: NetworkEvents,
-    players: MultiMap<ConnectionId,Id,Entity>,
-    player:  Id,
+    players: BiHashMap<ConnectionId,PlayerId>,
+    player:  PlayerId,
 }
 
 impl Deref for NetworkEvents {
@@ -79,14 +81,14 @@ impl Default for NetworkEvents {
 impl Default for NetworkState {
     fn default() -> Self {
         Self {
-            flags: [false;5],
+            flags: [false;COUNT],
             mode: Mode::None,
             address: String::new(),
             port: 0,
             motd: "Welcome to Warfare!".into(),
             events: NetworkEvents::default(),
-            players: MultiMap::new(),
-            player: id::get(),
+            players: BiHashMap::new(),
+            player: PlayerId::new(),
         }
     }
 }
@@ -97,10 +99,11 @@ impl NetworkEvents {
         self.messages.drain(..).collect()
     }
 
-    pub fn create_event(&mut self, sender: Id, unit: Unit) {
+    pub fn create_event(&mut self, sender: PlayerId, unit: Unit) {
         self.messages.push(
             MessageData::Create(
                 UnitData {
+                    target: None,
                     sender,
                     unit,
                 }
@@ -108,23 +111,26 @@ impl NetworkEvents {
         );
     }
 
-    pub fn move_event(&mut self, sender: Id, selection: &Selection) {
+    pub fn move_event(&mut self, sender: PlayerId, selections: &Vec<Selection>) {
         self.messages.push(
             MessageData::Move(
                 MoveData {
+                    target: None,
                     sender,
-                    unit: selection.unit(),
-                    point: selection.end_point(),
-                    actions: selection.cost(),
+                    moves: selections
+                        .iter()
+                        .map(|s| (s.unit(),s.end_point(),s.cost()))
+                        .collect(),
                 }
             )
         );
     }
 
-    pub fn chat_event(&mut self, sender: Id, message: String) {
+    pub fn chat_event(&mut self, sender: PlayerId, message: String) {
         self.messages.push(
             MessageData::Chat(
                 ChatData {
+                    target: None,
                     sender,
                     message,
                 }
@@ -132,10 +138,11 @@ impl NetworkEvents {
         );
     }
 
-    pub fn update_event(&mut self, sender: Id, state: &State) {
+    pub fn update_event(&mut self, sender: PlayerId, state: &State) {
         self.messages.push(
             MessageData::Update(
                 TerrainData {
+                    target: None,
                     sender,
                     seed: state.seed(),
                     turn: state.turn(),
@@ -145,10 +152,11 @@ impl NetworkEvents {
         );
     }
 
-    pub fn join_event(&mut self, sender: Id, player: Id) {
+    pub fn join_event(&mut self, sender: PlayerId, player: PlayerId) {
         self.messages.push(
             MessageData::Join(
                 JoinData {
+                    target: None,
                     sender,
                     player,
                 }
@@ -156,12 +164,12 @@ impl NetworkEvents {
         );
     }
 
-    pub fn confirm_event(&mut self, sender: Id, player: Id, motd: String) {
+    pub fn confirm_event(&mut self, sender: PlayerId, player: PlayerId, motd: String) {
         self.messages.push(
             MessageData::Confirm(
                 ConfirmData {
+                    target: Some(player),
                     sender,
-                    player,
                     motd,
                 }
             )
@@ -195,9 +203,9 @@ impl NetworkState {
         self.events.create_event(self.id(),unit);
     }
 
-    pub fn send_move_event(&mut self, selection: &Selection) {
+    pub fn send_move_event(&mut self, selections: &Vec<Selection>) {
         self.flags[SEND] = true;
-        self.events.move_event(self.id(),selection);
+        self.events.move_event(self.id(),selections);
     }
 
     pub fn send_chat_event(&mut self, message: String) {
@@ -210,18 +218,14 @@ impl NetworkState {
         self.events.update_event(self.id(),state);
     }
 
-    pub fn send_join_event(&mut self, id: Id) {
+    pub fn send_join_event(&mut self, id: PlayerId) {
         self.flags[SEND] = true;
         self.events.join_event(self.id(),id);
     }
 
-    pub fn send_confirm_event(&mut self, id: Id) {
+    pub fn send_confirm_event(&mut self, id: PlayerId) {
         self.flags[SEND] = true;
         self.events.confirm_event(self.id(),id,self.motd());
-    }
-
-    pub fn sync(&mut self) {
-        self.flags[SYNC] = true;
     }
 
     pub fn host_requested(&self) -> bool {
@@ -240,11 +244,7 @@ impl NetworkState {
         self.flags[SEND] 
     }
 
-    pub fn sync_requested(&self) -> bool {
-        self.flags[SYNC] 
-    }
-
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> PlayerId {
         self.player.clone()
     }
 
@@ -272,7 +272,7 @@ impl NetworkState {
         self.mode = Mode::Client;
     }
 
-    pub fn set_id(&mut self, id: Id) {
+    pub fn set_id(&mut self, id: PlayerId) {
         self.player = id;
     }
 
@@ -297,11 +297,37 @@ impl NetworkState {
             .ok()
     }
 
-    pub fn connection(&self, id: Id) -> Option<ConnectionId> {
-        self.players
-            .iter()
-            .find(|(_,n)| n.0 == id)
-            .map( |(k,_)| k.clone())
+    pub fn send<T>(&mut self, server: &NetworkServer, client: &NetworkClient, message: T)
+        where 
+            T: ClientMessage + ServerMessage + NetworkMessage + Clone + HasTarget
+    {
+        match self.mode() {
+            Mode::Server => self.send_server_message(server,message),
+            Mode::Client => self.send_client_message(client,message),
+            Mode::None => warn!("Cannot send without Mode"),
+        }
+    }
+
+    fn send_server_message<T>(&mut self, server: &NetworkServer, message: T)
+        where 
+            T: ClientMessage + NetworkMessage + Clone + HasTarget
+    {
+        match message.target().as_ref().map(|t| self.players.get_by_right(t)).flatten() {
+            Some(id) => match server.send_message(*id,message) {
+                Err(e) => warn!("Send failed: {}",e),
+                _ => (),
+            },
+            None => server.broadcast(message),
+        };
+    }
+
+    fn send_client_message<T>(&mut self, client: &NetworkClient, message: T)
+        where 
+            T: ServerMessage + NetworkMessage + Clone
+    {
+        if let Err(e) = client.send_message(message) {
+            warn!("Send failed: {}",e);
+        };
     }
 }
 
@@ -318,23 +344,22 @@ fn host_system(
         return;
     }
 
-    // stop listening to current address
+    // stop listening (if we were)
     server.stop();
     network.clear_mode();
+    network.clear_flags();
 
     // start listening to new address
     match network.address() {
         Some(address) => match server.listen(address) {
             Ok(()) => {
-                info!("listening on {:?} (as player {})",address,network.id());
+                info!("Hosting at {:?} ({})",address,network.id());
                 network.set_server();
             },
-            Err(e) => error!("listening failed: {}",e),
+            Err(e) => error!("Hosting failed: {}",e),
         },
-        None => error!("bad address"),
+        None => error!("No address"),
     }
-
-    network.clear_flags();
 }
 
 fn connect_system(
@@ -353,7 +378,9 @@ fn connect_system(
 
     // stop listening (if we were)
     server.stop();
+    client.disconnect();
     network.clear_mode();
+    network.clear_flags();
 
     match network.address() {
         Some(address) => {
@@ -362,10 +389,8 @@ fn connect_system(
                 max_packet_length: 10 * 1024 * 1024,
             });
         },
-        None => error!("bad address"),
+        None => error!("Bad address"),
     }
-
-    network.clear_flags();
 }
 
 fn disconnect_system(
@@ -388,7 +413,7 @@ fn disconnect_system(
     network.clear_mode();
     network.clear_flags();
 
-    info!("disconnected");
+    info!("Disconnected");
 }
 
 fn event_system(
@@ -405,30 +430,16 @@ fn event_system(
     for event in events.iter() {
         match event {
             ServerNetworkEvent::Connected(connection) => {
-                info!("player connected; {}", connection);
-                let id = id::get();
-                let conn = connection.clone();
-                let entity = commands
-                    .spawn()
-                    .insert(Player(conn.clone()))
-                    .id();
-                
-                network.players.insert(conn.clone(),id,entity);
+                let id = PlayerId::new();
+                info!("Player {} joined", id);
+                network.players.insert(*connection,id);
                 network.send_join_event(id);
                 network.send_confirm_event(id);
-
-                // info!("sending confirm; {}", id);
-                // server.send_message(conn,ConfirmMessage::new(ConfirmData {
-                //     sender: network.id(),
-                //     player: id,
-                //     motd: "Welcome to Warfare!".into(),
-                // }));
             },
             ServerNetworkEvent::Disconnected(connection) => {
-                info!("player disconnected; {}", connection);
-                if let Some(entity) = network.players.remove(connection)
+                if let Some((_,id)) = network.players.remove_by_left(connection)
                 {
-                    commands.entity(entity).despawn()
+                    info!("Player {} left", id);
                 }
             },
             _ => ()
@@ -444,7 +455,7 @@ fn server_receive_system(
     mut map_query: Query<&mut Tilemap>,
     mut create_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
-    mut update_messages: EventReader<NetworkData<UpdateMessage>>,
+    mut refresh_messages: EventReader<NetworkData<RefreshMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
     mut join_messages: EventReader<NetworkData<JoinMessage>>,
     mut confirm_messages: EventReader<NetworkData<ConfirmMessage>>,
@@ -459,50 +470,25 @@ fn server_receive_system(
 
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
+    for message in move_messages.iter() {
+        message.apply(&mut tilemap, &mut state);
+    }
+
     for message in create_messages.iter() {
-        let mut unit = message.value().unit.clone();
-        let point = unit.position().clone();
-
-        *(unit.texture_mut()) = state.textures.get(Label::Unit);
-
-        unit.insert(&mut tilemap);
-        state.units.add(point,unit);
+        message.apply(&mut tilemap, &mut state);
     }
 
-    for (point,messages) in move_messages.iter().group_by(|m| m.value().point).into_iter() {
-        let ids = messages
-            .into_iter()
-            .map(|m| m.value().unit)
-            .collect();
-        state.units.select(&ids);
-        state.units.move_selection(&mut tilemap,&point);
-        state.units.select_none_free();
-    }
-
-    // if the server receives a sync message, it just echos
-    // it's state back to the clients.
-    if update_messages.iter().count() > 0 {
-        info!("responding to sync request");
-        network.sync();
+    for message in refresh_messages.iter() {
+        message.apply(&mut network,&state);
     }
 
     for message in chat_messages.iter() {
-        message.apply(&mut gui);
-        let id = message.value().sender.clone();
-        let msg = message.value().message.clone();
-        info!("message: {}",msg);
-        server.broadcast(ChatMessage::new(ChatData {
-            sender: id,
-            message: msg,
-        }));
+        message.apply(&network,&mut gui);
+        server.broadcast(ChatMessage::from(message));
     }
 
-    for message in chat_messages.iter() {
+    for message in join_messages.iter() {
         message.apply(&mut gui);
-    }
-
-    for join in join_messages.iter() {
-        info!("player joined the game");
     }
 }
 
@@ -529,14 +515,8 @@ fn client_receive_system(
 
     let mut tilemap = map_query.single_mut().expect("Need tilemap");
 
-    for (point,messages) in move_messages.iter().group_by(|m| m.value().point).into_iter() {
-            let ids = messages
-                .into_iter()
-                .map(|m| m.value().unit)
-                .collect();
-            state.units.select(&ids);
-            state.units.move_selection(&mut tilemap,&point);
-            state.units.select_none_free();
+    for message in move_messages.iter() {
+        message.apply(&mut tilemap, &mut state);
     }
 
     for message in create_messages.iter() {
@@ -544,11 +524,11 @@ fn client_receive_system(
     }
 
     for message in update_messages.iter() {
-        message.apply(&mut state);
+        message.apply(&network, &mut state);
     }
 
     for message in chat_messages.iter() {
-        message.apply(&mut gui);
+        message.apply(&network, &mut gui);
     }
 
     for message in confirm_messages.iter() {
@@ -559,6 +539,7 @@ fn client_receive_system(
 fn server_send_system(
     state: ResMut<State>,
     mut gui: ResMut<GuiState>,
+    client: Res<NetworkClient>,
     server: Res<NetworkServer>,
     mut network: ResMut<NetworkState>,
 ) {
@@ -580,17 +561,13 @@ fn server_send_system(
         match message {
             MessageData::Chat(v) => {
                 let message = ChatMessage::new(v);
-                server.broadcast(message.clone());
-                message.apply(&mut gui);
+                message.apply(&network,&mut gui);
+                server.broadcast(message);
             },
-            MessageData::Update(v) => server.broadcast(UpdateMessage::new(v)),
-            MessageData::Create(v) => server.broadcast(CreateMessage::new(v)),
-            MessageData::Move(v) => server.broadcast(MoveMessage::new(v)),
-            MessageData::Confirm(v) => {
-                if let Some(c) = network.connection(v.player) {
-                    server.send_message(c,ConfirmMessage::new(v));
-                }
-            },
+            MessageData::Update(v)  => network.send(&server,&client,UpdateMessage::new(v)),
+            MessageData::Create(v)  => network.send(&server,&client,CreateMessage::new(v)),
+            MessageData::Move(v)    => network.send(&server,&client,MoveMessage::new(v)),
+            MessageData::Confirm(v) => network.send(&server,&client,ConfirmMessage::new(v)),
             _ => (),
         };
     }
@@ -616,37 +593,14 @@ fn client_send_system(
 
     network.clear_flags();
 
-    for message in network.events.drain(..) {
+    for message in network.events.take().into_iter() {
         match message {
-            MessageData::Chat(v)   => { client.send_message(ChatMessage::new(v)); },
-            MessageData::Create(v) => { client.send_message(CreateMessage::new(v)); },
-            MessageData::Move(v)   => { client.send_message(MoveMessage::new(v)); },
+            MessageData::Chat(v)   => network.send(&server,&client,ChatMessage::new(v)),
+            MessageData::Create(v) => network.send(&server,&client,CreateMessage::new(v)),
+            MessageData::Move(v)   => network.send(&server,&client,MoveMessage::new(v)),
             _ => (),
         };
     }
-}
-
-fn sync_system(
-    state: ResMut<State>,
-    client: Res<NetworkClient>,
-    server: Res<NetworkServer>,
-    mut network: ResMut<NetworkState>,
-) {
-    if !state.loaded {
-        return;
-    }
-
-    if !network.sync_requested() {
-        return;
-    }
-
-    network.clear_flags();
-
-    if !network.is_server() {
-        return;
-    }
-
-    network.send_update_event(&state);
 }
 
 impl Plugin for NetworkPlugin {
@@ -658,7 +612,6 @@ impl Plugin for NetworkPlugin {
            .add_system(server_receive_system.system())
            .add_system(client_receive_system.system())
            .add_system(server_send_system.system())
-           .add_system(client_send_system.system())
-           .add_system(sync_system.system());
+           .add_system(client_send_system.system());
     }
 }

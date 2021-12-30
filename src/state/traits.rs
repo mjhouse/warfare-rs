@@ -1,11 +1,13 @@
 use crate::error::Result;
 use crate::generation::Marker;
 use crate::objects::Point;
+use crate::generation::Id;
+
 use bevy::prelude::Color;
 use bevy_tilemap::{Tile, Tilemap};
 
 pub trait HasId {
-    fn id(&self) -> &usize;
+    fn id(&self) -> &Id;
 }
 
 pub trait HasMarker {

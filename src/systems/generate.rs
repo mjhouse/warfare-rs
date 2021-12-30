@@ -207,7 +207,7 @@ fn generator_configure_system(
             }
 
             if network.is_server() {
-                network.sync();
+                network.send_update_event(&state);
             }
         }
     }

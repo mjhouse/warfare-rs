@@ -117,7 +117,7 @@ impl Soldier {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Unit {
     /// globally unique id
-    id: usize,
+    id: Id,
 
     /// display information
     marker: Marker,
@@ -132,7 +132,7 @@ pub struct Unit {
 impl Default for Unit {
     fn default() -> Self {
         Self {
-            id: id::get(),
+            id: Id::new(),
             marker: Marker {
                 layer: 0,
                 texture: 0,
@@ -235,7 +235,7 @@ impl HasMarker for Unit {
 }
 
 impl HasId for Unit {
-    fn id(&self) -> &usize {
+    fn id(&self) -> &Id {
         &self.id
     }
 }

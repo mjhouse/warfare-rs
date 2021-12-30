@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::generation::id;
+use crate::generation::id::{self,Id};
 use crate::objects::Point;
 use crate::state::traits::*;
 
@@ -19,7 +19,7 @@ pub struct Marker {
 #[derive(Debug, Clone)]
 pub struct Cursor {
     /// globally unique id
-    pub id: usize,
+    pub id: Id,
 
     /// display information
     pub marker: Marker,
@@ -28,7 +28,7 @@ pub struct Cursor {
 impl Cursor {
     pub fn new(layer: usize, texture: usize, position: Point) -> Self {
         Self {
-            id: id::get(),
+            id: Id::new(),
             marker: Marker {
                 layer,
                 texture,

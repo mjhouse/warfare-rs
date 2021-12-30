@@ -1,7 +1,8 @@
 use bevy::prelude::Color;
 use bevy_tilemap::{point::Point3, Tile};
 
-use crate::generation::{id, Biome, Soil};
+use crate::generation::id::{self,Id};
+use crate::generation::{Biome, Soil};
 use crate::objects::Location;
 
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -40,7 +41,7 @@ impl Display for Attribute {
 #[derive(Debug, Default, Clone)]
 pub struct Area {
     /// A unique id for each tile
-    id: usize,
+    id: Id,
 
     /// The texture stack for this area
     textures: Vec<usize>,
@@ -76,7 +77,7 @@ pub struct Area {
 impl Area {
     pub fn create() -> Self {
         Self {
-            id: id::get(),
+            id: Id::new(),
             ..Default::default()
         }
     }
@@ -151,7 +152,7 @@ impl Area {
         self
     }
 
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> Id {
         self.id.clone()
     }
 

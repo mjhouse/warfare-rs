@@ -25,4 +25,4 @@ pub use marker::{Cursor, Marker};
 
 pub use unit::{Specialty, Unit};
 
-pub use id::Id;
+pub use id::{PlayerId,Id};
