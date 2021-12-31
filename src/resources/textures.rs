@@ -47,7 +47,7 @@ impl Label {
             Chalk => "chalk",
             Loam => "loam",
             Blank => "blank",
-            Unit => "unit",
+            Unit => "units/infantry",
             Marker => "marker",
         }
     }
@@ -87,8 +87,25 @@ impl Textures {
             "trees",
             "marker",
             "snow",
-            "unit",
-            "unit_lifted",
+            "units/veteran/veteran_0",
+            "units/veteran/veteran_1",
+            "units/veteran/veteran_2",
+            "units/veteran/veteran_3",
+            "units/armor",
+            "units/armor/armor_blue",
+            "units/armor/armor_green",
+            "units/armor/armor_red",
+            "units/armor/armor_yellow",
+            "units/infantry",
+            "units/infantry/infantry_blue",
+            "units/infantry/infantry_green",
+            "units/infantry/infantry_red",
+            "units/infantry/infantry_yellow",
+            "units/militia",
+            "units/militia/militia_blue",
+            "units/militia/militia_green",
+            "units/militia/militia_red",
+            "units/militia/militia_yellow",
         ];
 
         self.textures = labels

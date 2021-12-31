@@ -17,6 +17,7 @@ pub struct Message {
 pub struct GuiState {
     network: bool,
     chat: bool,
+    units: bool,
     ip: String,
     port: u16,
     message: String,
@@ -28,6 +29,7 @@ impl Default for GuiState {
         Self {
             network: false,
             chat: false,
+            units: false,
             ip: "127.0.0.1".into(),
             port: 8080,
             message: "".into(),
@@ -159,8 +161,8 @@ fn gui_display_system(
                         state.events.send(Action::UpdateTerrain);
                     }
 
-                    if ui.button("Place Unit").clicked() {
-                        state.events.send(Action::PlaceUnit);
+                    if ui.button("Units").clicked() {
+                        gui.units = !gui.network;
                     }
 
                     if ui.button("Network").clicked() {
@@ -379,35 +381,21 @@ fn gui_display_system(
             ui.set_width(ui.available_width());
             ui.set_height(ui.available_height());
 
-            // let text_style = egui::TextStyle::Body;
-            // let row_height = ui.fonts()[text_style].row_height();
-
-            // egui::ScrollArea::vertical()
-            //     .max_height(200.)
-            //     .stick_to_bottom()
-            //     .always_show_scroll(true)
-            //     .show_rows(ui, row_height, 100, |ui, range| {
-            //         if let Some(messages) = gui.history.get(range) {
-            //             for message in messages.iter() {
-            //                 let player = &message.player;
-            //                 let content = &message.content;
-            //                 ui.label(format!("{}: {}",player,content));
-            //             }
-            //         }
-            //     });
+            let text_style = egui::TextStyle::Body;
+            let row_height = ui.fonts()[text_style].row_height();
+            let num_rows   = gui.history.len();
 
             egui::ScrollArea::vertical()
                 .max_height(400.)
                 .stick_to_bottom()
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.set_height(ui.available_height());
-
-                    for message in gui.history.iter() {
-                        let player = &message.player;
-                        let content = &message.content;
-                        ui.label(format!("{}: {}",player,content));
-                        ui.add_space(5.);
+                .auto_shrink([false; 2])
+                .show_rows(ui, row_height, gui.history.len(), |ui, row_range| {
+                    for row in row_range {
+                        if let Some(message) = gui.history.get(row) {
+                            let player = &message.player;
+                            let content = &message.content;
+                            ui.label(format!("{}: {}",player,content));
+                        }
                     }
                 });
 
@@ -450,8 +438,56 @@ fn gui_display_system(
             }
         });
     }
+
+    if gui.units {
+        egui::Window::new("Units")
+            .default_width(300.0)
+            .default_height(400.0)
+            .show(context.ctx(), |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("Infantry").clicked() {
+                        state.events.send(Action::PlaceUnit);
+                    }
+
+                    if ui.button("Armor").clicked() {
+                        state.events.send(Action::PlaceUnit);
+                    }
+
+                    if ui.button("Militia").clicked() {
+                        state.events.send(Action::PlaceUnit);
+                    }
+                });
+
+                selection.hovering = !hovered(window,ui);
+            });
+    }
     
     selection.interacting = hovering;
+}
+
+fn hovered(window: &Window, ui: &egui::Ui) -> bool {
+    match window.cursor_position() {
+        Some(mut p) => {
+            let mut r = ui.min_rect();
+            let s = ui.style();
+    
+            p.y = window.height() - p.y;
+    
+            let pad  = s.spacing.window_padding;
+            let side = s.interaction.resize_grab_radius_side;
+    
+            r.min.x -= pad.x + side;
+            r.max.x += pad.x + side + 5.;
+            r.min.y -= pad.y + side + 25.;
+            r.max.y += pad.y + side;
+    
+            p.x >= r.min.x && 
+            p.x <= r.max.x && 
+            p.y >= r.min.y && 
+            p.y <= r.max.y
+        }
+        None => false
+    }
 }
 
 impl Plugin for GuiPlugin {

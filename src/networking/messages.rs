@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use itertools::Itertools;
+use std::sync::Mutex;
+use std::collections::HashSet;
+use once_cell::sync::Lazy;
 
 use bevy::prelude::*;
 use bevy_tilemap::Tilemap;
@@ -14,7 +17,7 @@ use bevy_spicy_networking::{
 };
 
 use crate::generation::Factors;
-use crate::generation::{Unit,Id,PlayerId};
+use crate::generation::{Unit,id::*};
 use crate::objects::Point;
 
 use crate::systems::network::NetworkState;
@@ -37,25 +40,21 @@ macro_rules! register {
 }
 
 macro_rules! message {
-    ( $n: ident ( $v: ty )) => {
+    ( $d: ident, $n: ident ( $v: ty )) => {
         #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-        pub struct $n {
-            inner: $v,
-        }
+        pub struct $n($v);
 
         impl $n {
             pub fn new(v: $v) -> Self {
-                Self { 
-                    inner: v,
-                }
+                Self(v)
             }
 
             pub fn value(&self) -> &$v {
-                &self.inner
+                &self.0
             }
 
             pub fn take(self) -> $v {
-                self.inner
+                self.0
             }
         }
 
@@ -70,9 +69,25 @@ macro_rules! message {
             const NAME: &'static str = name!($n);
         }
 
-        impl HasTarget for $n {
+        impl Message for $n {
             fn target(&self) -> Option<PlayerId> {
-                self.inner.target
+                self.0.header.target
+            }
+
+            fn sender(&self) -> PlayerId {
+                self.0.header.sender
+            }
+
+            fn id(&self) -> Option<MessageId> {
+                self.0.header.id.clone()
+            }
+
+            fn set_id(&mut self, id: MessageId) {
+                self.0.header.id = Some(id);
+            }
+
+            fn data(&self) -> MessageData {
+                MessageData::$d(self.0.clone())
             }
         }
 
@@ -90,56 +105,81 @@ macro_rules! message {
     };
 }
 
-pub trait HasTarget {
+pub trait Message {
+
     fn target(&self) -> Option<PlayerId>;
+
+    fn sender(&self) -> PlayerId;
+
+    fn id(&self) -> Option<MessageId>;
+
+    fn set_id(&mut self, id: MessageId);
+
+    fn data(&self) -> MessageData;
 }
 
 pub struct MessagePlugin;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct EmptyData {
+pub struct HeaderData {
+    pub id: Option<MessageId>,
     pub target: Option<PlayerId>,
+    pub sender: PlayerId,
+}
+
+impl HeaderData {
+    pub fn new(sender: PlayerId) -> Self {
+        Self {
+            id:     None,
+            target: None,
+            sender: sender,
+        }
+    }
+    pub fn with_target(mut self, target: PlayerId) -> Self {
+        self.target = Some(target);
+        self
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct EmptyData {
+    pub header: HeaderData,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct JoinData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
     pub player: PlayerId,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ConfirmData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
+    pub player: PlayerId,
     pub motd: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct UnitData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
     pub unit: Unit,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MoveData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
     pub moves: Vec<(Id,Point,u8)>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ChatData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
     pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct TerrainData {
-    pub target: Option<PlayerId>,
-    pub sender: PlayerId,
+    pub header: HeaderData,
     pub seed: u32,
     pub turn: u32,
     pub factors: Factors
@@ -156,13 +196,13 @@ pub enum MessageData {
     Refresh(EmptyData),  // request update
 }
 
-message!(JoinMessage(JoinData));
-message!(ConfirmMessage(ConfirmData));
-message!(CreateMessage(UnitData));
-message!(MoveMessage(MoveData));
-message!(ChatMessage(ChatData));
-message!(UpdateMessage(TerrainData));
-message!(RefreshMessage(EmptyData));
+message!(Join,JoinMessage(JoinData));
+message!(Confirm,ConfirmMessage(ConfirmData));
+message!(Create,CreateMessage(UnitData));
+message!(Move,MoveMessage(MoveData));
+message!(Chat,ChatMessage(ChatData));
+message!(Update,UpdateMessage(TerrainData));
+message!(Refresh,RefreshMessage(EmptyData));
 
 impl Plugin for MessagePlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -176,35 +216,73 @@ impl Plugin for MessagePlugin {
     }
 }
 
+macro_rules! require {
+    ( $check: expr ) => { 
+        if !$check { return; } 
+    };
+    ( $check: expr, $msg: expr ) => { 
+        if !$check { 
+            warn!($msg);
+            return;
+        } 
+    }
+}
+
+macro_rules! require_client {
+    ( $network: ident ) => { require!($network.is_client()) }
+}
+
+macro_rules! require_server {
+    ( $network: ident ) => { require!($network.is_server()) }
+}
+
+macro_rules! require_other {
+    ( $network: ident, $id: expr ) => { require!(($network.id() == $id)) }
+}
+
+macro_rules! require_registered {
+    ( $message: ident ) => { require!(($message.id().is_some())) }
+}
+
+static MESSAGES: Lazy<Mutex<HashSet<MessageId>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+pub fn registered(id: &MessageId) -> bool {
+    MESSAGES.lock()
+            .expect("failed to lock registration list")
+            .contains(id)
+}
+
+pub fn register(id: &MessageId) {
+    MESSAGES.lock()
+            .expect("failed to lock registration list")
+            .insert(id.clone());
+}
+
 impl JoinMessage {
     pub fn apply(&self, gui: &mut GuiState) {
-        // add a visible join message to chat window
-        let data = self.value();
-        let message = format!("{} joined the game",data.player);
-        gui.add_message(data.sender,message);
+        gui.add_message(self.sender(),
+            format!("Player {} has joined",self.value().player));
     }
 }
 
 impl ConfirmMessage {
-    pub fn apply(&self, network: &mut NetworkState) {
-        // update player id to match the one issued by server
-        if !network.is_client() {
-            warn!("ConfirmMessage applied to server");
-            return;
-        }
+    pub fn apply(&self, network: &mut NetworkState, gui: &mut GuiState) {
+        require_other!(network,self.sender()); // cannot apply to self
+        require_registered!(self);
 
-        match self.target() {
-            Some(id) => {
-                network.set_id(id);
-                network.set_motd(self.value().motd.clone());
-            },
-            None => warn!("ConfirmMessage with no id"),
-        }
+        let data = self.value();
+        network.set_id(data.player);
+        network.set_motd(data.motd.clone());
+        gui.add_message(self.sender(),data.motd.clone());
     }
 }
 
 impl CreateMessage {
-    pub fn apply(&self, map: &mut Tilemap, state: &mut State) {
+    pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
+        require_other!(network,self.sender()); // cannot apply to self
+        require_registered!(self);
+
+        // TODO: streamline this add process
         // add new unit to tilemap and unit map if it doesn't exist
         let data = self.value();
         let mut unit = data.unit.clone();
@@ -218,7 +296,12 @@ impl CreateMessage {
 }
 
 impl MoveMessage {
-    pub fn apply(&self, map: &mut Tilemap, state: &mut State) {
+    pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
+        require_other!(network,self.sender()); // cannot apply to self
+        require_registered!(self);
+
+        // TODO: apply actions to moved units
+        // group by point-being-moved-to and select + move all units
         let data = self.value();
         for (point,moves) in data.moves.iter().group_by(|m| m.1).into_iter() {
             let ids = moves
@@ -228,33 +311,24 @@ impl MoveMessage {
             state.units.select(&ids);
             state.units.move_selection(map,&point);
             state.units.select_none_free();
-            // TODO: apply actions to moved units
         }
     }
 }
 
 impl ChatMessage {
     pub fn apply(&self, network: &NetworkState, gui: &mut GuiState) {
-        // add visible chat message to chat window
-        let data = self.value();
-        gui.add_message(data.sender,data.message.clone());
+        require_registered!(self);
+        
+        gui.add_message(
+            self.sender(),
+            self.value().message.clone());
     }
 }
 
 impl UpdateMessage {
     pub fn apply(&self, network: &NetworkState, state: &mut State) {
-        // update terrain and factors then signal re-generate
-        if network.is_client() {
-            state.sync(self.value().clone());
-        }
-    }
-}
+        require_registered!(self);
 
-impl RefreshMessage {
-    pub fn apply(&self, network: &mut NetworkState, state: &State) {
-        // request update event from network to all clients
-        if network.is_server() {
-            network.send_update_event(&state);
-        }
+        state.sync(self.value().clone());
     }
 }

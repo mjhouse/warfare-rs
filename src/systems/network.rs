@@ -19,8 +19,8 @@ use bevy_spicy_networking::{
 };
 
 use crate::state::{traits::*, State};
-use crate::networking::messages::*;
-use crate::generation::{Unit,Id,PlayerId};
+use crate::networking::messages::{self,*};
+use crate::generation::{Unit,id::*};
 use crate::generation::Factors;
 use crate::resources::Label;
 use crate::objects::Selection;
@@ -99,12 +99,15 @@ impl NetworkEvents {
         self.messages.drain(..).collect()
     }
 
+    pub fn add(&mut self, event: MessageData) {
+        self.messages.push(event);
+    }
+
     pub fn create_event(&mut self, sender: PlayerId, unit: Unit) {
         self.messages.push(
             MessageData::Create(
                 UnitData {
-                    target: None,
-                    sender,
+                    header: HeaderData::new(sender),
                     unit,
                 }
             )
@@ -115,8 +118,7 @@ impl NetworkEvents {
         self.messages.push(
             MessageData::Move(
                 MoveData {
-                    target: None,
-                    sender,
+                    header: HeaderData::new(sender),
                     moves: selections
                         .iter()
                         .map(|s| (s.unit(),s.end_point(),s.cost()))
@@ -130,8 +132,7 @@ impl NetworkEvents {
         self.messages.push(
             MessageData::Chat(
                 ChatData {
-                    target: None,
-                    sender,
+                    header: HeaderData::new(sender),
                     message,
                 }
             )
@@ -142,8 +143,7 @@ impl NetworkEvents {
         self.messages.push(
             MessageData::Update(
                 TerrainData {
-                    target: None,
-                    sender,
+                    header: HeaderData::new(sender),
                     seed: state.seed(),
                     turn: state.turn(),
                     factors: state.factors(),
@@ -156,8 +156,7 @@ impl NetworkEvents {
         self.messages.push(
             MessageData::Join(
                 JoinData {
-                    target: None,
-                    sender,
+                    header: HeaderData::new(sender),
                     player,
                 }
             )
@@ -168,9 +167,9 @@ impl NetworkEvents {
         self.messages.push(
             MessageData::Confirm(
                 ConfirmData {
-                    target: Some(player),
-                    sender,
-                    motd,
+                    header: HeaderData::new(sender).with_target(player),
+                    player: player,
+                    motd: motd,
                 }
             )
         );
@@ -297,28 +296,32 @@ impl NetworkState {
             .ok()
     }
 
-    pub fn send<T>(&mut self, server: &NetworkServer, client: &NetworkClient, message: T)
+    fn send_server_message<T>(&mut self, server: &NetworkServer, mut message: T)
         where 
-            T: ClientMessage + ServerMessage + NetworkMessage + Clone + HasTarget
+            T: ClientMessage + NetworkMessage + Clone + Message
     {
-        match self.mode() {
-            Mode::Server => self.send_server_message(server,message),
-            Mode::Client => self.send_client_message(client,message),
-            Mode::None => warn!("Cannot send without Mode"),
-        }
-    }
-
-    fn send_server_message<T>(&mut self, server: &NetworkServer, message: T)
-        where 
-            T: ClientMessage + NetworkMessage + Clone + HasTarget
-    {
-        match message.target().as_ref().map(|t| self.players.get_by_right(t)).flatten() {
-            Some(id) => match server.send_message(*id,message) {
-                Err(e) => warn!("Send failed: {}",e),
-                _ => (),
-            },
-            None => server.broadcast(message),
+        let message_id = match message.id() {
+            Some(k) => k,
+            None => {
+                let k = MessageId::new();
+                message.set_id(k.clone());
+                debug!("assigned message id: {}",k);
+                k
+            }
         };
+
+        debug!("checking message id {} registered",&message_id);
+        if !messages::registered(&message_id) {
+            match message.target().as_ref().map(|t| self.players.get_by_right(t)).flatten() {
+                Some(id) => match server.send_message(*id,message) {
+                    Err(e) => warn!("Send failed: {}",e),
+                    _ => (),
+                },
+                None => server.broadcast(message),
+            };
+            debug!("message id {} has been registered",&message_id);
+            messages::register(&message_id);
+        }
     }
 
     fn send_client_message<T>(&mut self, client: &NetworkClient, message: T)
@@ -334,6 +337,7 @@ impl NetworkState {
 fn host_system(
     state: ResMut<State>,
     mut server: ResMut<NetworkServer>,
+    mut client: ResMut<NetworkClient>,
     mut network: ResMut<NetworkState>,
 ) {
     if !state.loaded {
@@ -355,6 +359,9 @@ fn host_system(
             Ok(()) => {
                 info!("Hosting at {:?} ({})",address,network.id());
                 network.set_server();
+                client.connect(address, NetworkSettings {
+                    max_packet_length: 10 * 1024 * 1024,
+                });
             },
             Err(e) => error!("Hosting failed: {}",e),
         },
@@ -433,8 +440,8 @@ fn event_system(
                 let id = PlayerId::new();
                 info!("Player {} joined", id);
                 network.players.insert(*connection,id);
-                network.send_join_event(id);
                 network.send_confirm_event(id);
+                network.send_join_event(id);
             },
             ServerNetworkEvent::Disconnected(connection) => {
                 if let Some((_,id)) = network.players.remove_by_left(connection)
@@ -448,17 +455,16 @@ fn event_system(
 }
 
 fn server_receive_system(
-    mut state: ResMut<State>,
-    mut gui: ResMut<GuiState>,
     server: Res<NetworkServer>,
+
+    state: ResMut<State>,
+    gui: ResMut<GuiState>,
+
     mut network: ResMut<NetworkState>,
-    mut map_query: Query<&mut Tilemap>,
     mut create_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
-    mut refresh_messages: EventReader<NetworkData<RefreshMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
-    mut join_messages: EventReader<NetworkData<JoinMessage>>,
-    mut confirm_messages: EventReader<NetworkData<ConfirmMessage>>,
+    mut refresh_messages: EventReader<NetworkData<RefreshMessage>>,
 ) {
     if !state.loaded {
         return;
@@ -468,79 +474,104 @@ fn server_receive_system(
         return;
     }
 
-    let mut tilemap = map_query.single_mut().expect("Need tilemap");
-
-    for message in move_messages.iter() {
-        message.apply(&mut tilemap, &mut state);
-    }
+    /*
+        join:    ignore
+        confirm: ignore
+        create:  broadcast
+        move:    broadcast
+        chat:    broadcast
+        update:  ignore
+        refresh: broadcast update
+    */
 
     for message in create_messages.iter() {
-        message.apply(&mut tilemap, &mut state);
+        network.send_server_message(&server,(*message).clone());
     }
 
-    for message in refresh_messages.iter() {
-        message.apply(&mut network,&state);
+    for message in move_messages.iter() {
+        network.send_server_message(&server,(*message).clone());
     }
 
     for message in chat_messages.iter() {
-        message.apply(&network,&mut gui);
-        server.broadcast(ChatMessage::from(message));
+        network.send_server_message(&server,(*message).clone());
     }
 
-    for message in join_messages.iter() {
-        message.apply(&mut gui);
+    if refresh_messages.iter().count() > 0 {
+        network.send_update_event(&state);
     }
 }
 
 fn client_receive_system(
+    client: Res<NetworkClient>,
+
     mut state: ResMut<State>,
     mut gui: ResMut<GuiState>,
-    server: Res<NetworkServer>,
     mut network: ResMut<NetworkState>,
-    mut map_query: Query<&mut Tilemap>,
-    mut create_messages: EventReader<NetworkData<CreateMessage>>,
-    mut move_messages: EventReader<NetworkData<MoveMessage>>,
-    mut update_messages: EventReader<NetworkData<UpdateMessage>>,
-    mut chat_messages: EventReader<NetworkData<ChatMessage>>,
+    mut tilemap: Query<&mut Tilemap>,
+
     mut join_messages: EventReader<NetworkData<JoinMessage>>,
     mut confirm_messages: EventReader<NetworkData<ConfirmMessage>>,
+    mut create_messages: EventReader<NetworkData<CreateMessage>>,
+    mut move_messages: EventReader<NetworkData<MoveMessage>>,
+    mut chat_messages: EventReader<NetworkData<ChatMessage>>,
+    mut update_messages: EventReader<NetworkData<UpdateMessage>>,
 ) {
     if !state.loaded {
         return;
     }
 
-    if !network.is_client() {
+    if !client.is_connected() {
         return;
     }
 
-    let mut tilemap = map_query.single_mut().expect("Need tilemap");
+    /*
+        join:    apply
+        confirm: apply
+        create:  apply
+        move:    apply
+        chat:    apply
+        update:  apply
+        refresh: ignore
+    */
 
-    for message in move_messages.iter() {
-        message.apply(&mut tilemap, &mut state);
+    let mut map = tilemap.single_mut().expect("Need tilemap");
+
+    for message in join_messages.iter() {
+        message.apply(&mut gui);
+    }
+
+    for message in confirm_messages.iter() {
+        message.apply(&mut network, &mut gui);
     }
 
     for message in create_messages.iter() {
-        message.apply(&mut tilemap, &mut state);
+        if message.sender() != network.id() {
+            message.apply(&network,&mut map, &mut state);
+        }
     }
 
-    for message in update_messages.iter() {
-        message.apply(&network, &mut state);
+    for message in move_messages.iter() {
+        if message.sender() != network.id() {
+            message.apply(&network,&mut map, &mut state);
+        }
     }
 
     for message in chat_messages.iter() {
         message.apply(&network, &mut gui);
     }
 
-    for message in confirm_messages.iter() {
-        message.apply(&mut network);
+    for message in update_messages.iter() {
+        if message.sender() != network.id() {
+            message.apply(&network, &mut state);
+        }
     }
 }
 
 fn server_send_system(
     state: ResMut<State>,
-    mut gui: ResMut<GuiState>,
     client: Res<NetworkClient>,
     server: Res<NetworkServer>,
+    mut gui: ResMut<GuiState>,
     mut network: ResMut<NetworkState>,
 ) {
     if !state.loaded {
@@ -559,15 +590,13 @@ fn server_send_system(
 
     for message in network.events.take().into_iter() {
         match message {
-            MessageData::Chat(v) => {
-                let message = ChatMessage::new(v);
-                message.apply(&network,&mut gui);
-                server.broadcast(message);
-            },
-            MessageData::Update(v)  => network.send(&server,&client,UpdateMessage::new(v)),
-            MessageData::Create(v)  => network.send(&server,&client,CreateMessage::new(v)),
-            MessageData::Move(v)    => network.send(&server,&client,MoveMessage::new(v)),
-            MessageData::Confirm(v) => network.send(&server,&client,ConfirmMessage::new(v)),
+            MessageData::Chat(v)    => network.send_server_message(&server,ChatMessage::new(v,)),
+            MessageData::Create(v)  => network.send_server_message(&server,CreateMessage::new(v)),
+            MessageData::Move(v)    => network.send_server_message(&server,MoveMessage::new(v)),
+            MessageData::Refresh(v) => network.send_client_message(&client,RefreshMessage::new(v)),
+            MessageData::Join(v)    => network.send_server_message(&server,JoinMessage::new(v)),
+            MessageData::Update(v)  => network.send_server_message(&server,UpdateMessage::new(v)),
+            MessageData::Confirm(v) => network.send_server_message(&server,ConfirmMessage::new(v)),
             _ => (),
         };
     }
@@ -577,6 +606,7 @@ fn client_send_system(
     state: ResMut<State>,
     client: Res<NetworkClient>,
     server: Res<NetworkServer>,
+    mut gui: ResMut<GuiState>,
     mut network: ResMut<NetworkState>,
 ) {
     if !state.loaded {
@@ -595,9 +625,10 @@ fn client_send_system(
 
     for message in network.events.take().into_iter() {
         match message {
-            MessageData::Chat(v)   => network.send(&server,&client,ChatMessage::new(v)),
-            MessageData::Create(v) => network.send(&server,&client,CreateMessage::new(v)),
-            MessageData::Move(v)   => network.send(&server,&client,MoveMessage::new(v)),
+            MessageData::Chat(v)    => network.send_client_message(&client,ChatMessage::new(v)),
+            MessageData::Create(v)  => network.send_client_message(&client,CreateMessage::new(v)),
+            MessageData::Move(v)    => network.send_client_message(&client,MoveMessage::new(v)),
+            MessageData::Refresh(v) => network.send_client_message(&client,RefreshMessage::new(v)),
             _ => (),
         };
     }

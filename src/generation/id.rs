@@ -1,5 +1,6 @@
 use serde::{
-    Deserialize, 
+    Deserialize,
+    Deserializer, 
     Serialize,
 };
 use std::sync::atomic::{
@@ -54,5 +55,43 @@ macro_rules! identifier {
     }
 }
 
+macro_rules! identifier_ex {
+    ( $name: ident, $atomic: ident ) => {
+
+        // backing global counter for id generation
+        static $atomic: AtomicUsize = AtomicUsize::new(0);
+
+        // wrapper id struct
+        #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq, PartialEq)]
+        pub struct $name(usize);
+
+        impl $name {
+            
+            pub fn new() -> Self {
+                $name(increment!($atomic))
+            }
+
+            pub fn inner(self) -> usize {
+                self.0
+            }
+
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl ops::Deref for $name {
+            type Target = usize;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+    }
+}
+
 identifier!(Id,ID);
 identifier!(PlayerId,PLAYER);
+identifier_ex!(MessageId,MESSAGE);

@@ -36,8 +36,8 @@ fn main() {
         })
         .insert_resource(WindowDescriptor {
             title: "Warfare".to_string(),
-            width: 1036.,
-            height: 1036.,
+            width: 800.,
+            height: 700.,
             vsync: true,
             resizable: true,
             mode: WindowMode::Windowed,
