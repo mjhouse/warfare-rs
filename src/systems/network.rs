@@ -305,12 +305,10 @@ impl NetworkState {
             None => {
                 let k = MessageId::new();
                 message.set_id(k.clone());
-                debug!("assigned message id: {}",k);
                 k
             }
         };
 
-        debug!("checking message id {} registered",&message_id);
         if !messages::registered(&message_id) {
             match message.target().as_ref().map(|t| self.players.get_by_right(t)).flatten() {
                 Some(id) => match server.send_message(*id,message) {
@@ -319,7 +317,6 @@ impl NetworkState {
                 },
                 None => server.broadcast(message),
             };
-            debug!("message id {} has been registered",&message_id);
             messages::register(&message_id);
         }
     }

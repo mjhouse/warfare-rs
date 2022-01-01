@@ -2,6 +2,8 @@ mod calendar;
 mod events;
 mod movement;
 mod state;
+
+#[macro_use]
 mod flags;
 
 pub mod demographics;

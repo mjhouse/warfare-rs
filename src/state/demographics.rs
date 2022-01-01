@@ -160,11 +160,11 @@ mod tests {
 
     #[test]
     fn male_female_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         let mut male = 0;
         let mut female = 0;
         for _ in 0..100 {
-            match demographics.sex.gen() {
+            match demographics.sex() {
                 Sex::Male => male += 1,
                 Sex::Female => female += 1,
             };
@@ -175,45 +175,45 @@ mod tests {
 
     #[test]
     fn male_age_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         for _ in 0..100 {
-            let age = demographics.age.gen(&Sex::Male);
+            let age = demographics.age(&Sex::Male);
             // dbg!(age);
         }
     }
 
     #[test]
     fn female_age_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         for _ in 0..100 {
-            let age = demographics.age.gen(&Sex::Female);
+            let age = demographics.age(&Sex::Female);
             // dbg!(age);
         }
     }
 
     #[test]
     fn male_weight_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         for _ in 0..100 {
-            let weight = demographics.weight.gen(&Sex::Male);
+            let weight = demographics.weight(&Sex::Male);
             // dbg!(weight);
         }
     }
 
     #[test]
     fn male_height_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         for _ in 0..100 {
-            let height = demographics.height.gen(&Sex::Male);
+            let height = demographics.height(&Sex::Male);
             // dbg!(height);
         }
     }
 
     #[test]
     fn female_height_distribution() {
-        let demographics = Demographics::default();
+        let mut demographics = Demographics::new();
         for _ in 0..100 {
-            let height = demographics.height.gen(&Sex::Female);
+            let height = demographics.height(&Sex::Female);
             // dbg!(height);
         }
     }

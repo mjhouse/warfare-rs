@@ -17,17 +17,19 @@ serde = { version = "1.0.130", features = ["derive"] }
 erased-serde = { version = "0.3.17", features = ["unstable-debug"] }
 typetag = "0.1.8"
 
-# noise for map generation
+# noise and random numbers for map generation
 rand = "0.8.4"
 rand_distr = "0.4.2"
 rand_pcg = "0.3.1"
 noise = "0.7.0"
-itertools = "0.10.3"
 
 # ordered hashmap for unit position
 indexmap = "1.7.0"
 multi-map = "1.3.0"
 bimap = "0.6.1"
+
+# convenience methods and group_by
+itertools = "0.10.3"
 
 # logging and error handling
 log = "0.4.14"

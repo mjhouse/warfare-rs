@@ -217,15 +217,11 @@ mod tests {
 
     #[test]
     fn test_id_generated() {
-        // TODO: sometimes FAILS
-        // make sure ID is reset to '0'
-        crate::generation::id::set(0);
-
         let a1 = Area::create();
         let a2 = Area::create();
 
-        assert_eq!(a1.id(), 0);
-        assert_eq!(a2.id(), 1);
+        assert_eq!(*a1.id(), 1);
+        assert_eq!(*a2.id(), 2);
     }
 
     #[test]

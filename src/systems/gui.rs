@@ -1,6 +1,6 @@
 use crate::generation::{Biome, Soil};
 use crate::state::traits::HasId;
-use crate::state::{Action, State};
+use crate::state::{Action, State, Flags};
 use crate::systems::selection::Selection;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
@@ -9,15 +9,20 @@ use crate::generation::{PlayerId,Id};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub enum GuiFlag {
+    NetworkWindow,
+    UnitWindow,
+    ChatWindow,
+}
+
 pub struct Message {
     player: PlayerId,
     content: String,
 }
 
 pub struct GuiState {
-    network: bool,
-    chat: bool,
-    units: bool,
+    flags: Flags<GuiFlag>,
     ip: String,
     port: u16,
     message: String,
@@ -27,9 +32,7 @@ pub struct GuiState {
 impl Default for GuiState {
     fn default() -> Self {
         Self {
-            network: false,
-            chat: false,
-            units: false,
+            flags: Flags::new(),
             ip: "127.0.0.1".into(),
             port: 8080,
             message: "".into(),
@@ -162,17 +165,17 @@ fn gui_display_system(
                     }
 
                     if ui.button("Units").clicked() {
-                        gui.units = !gui.network;
+                        gui.flags.toggle(GuiFlag::UnitWindow);
                     }
 
                     if ui.button("Network").clicked() {
-                        gui.network = !gui.network;
+                        gui.flags.toggle(GuiFlag::NetworkWindow);
                     }
                 });
 
                 ui.horizontal(|ui| {
                     if ui.button("Chat").clicked() {
-                        gui.chat = !gui.chat;
+                        gui.flags.toggle(GuiFlag::ChatWindow);
                     }
                 });
 
@@ -309,7 +312,7 @@ fn gui_display_system(
         }
     }
 
-    if gui.network {
+    if gui.flags.get(GuiFlag::NetworkWindow) {
         egui::Window::new("Network")
         .default_width(300.0)
         .default_height(80.0)
@@ -373,7 +376,7 @@ fn gui_display_system(
         });
     }
 
-    if gui.chat {
+    if gui.flags.get(GuiFlag::ChatWindow) {
         egui::Window::new("Chat")
         .default_width(300.0)
         .default_height(400.0)
@@ -439,7 +442,7 @@ fn gui_display_system(
         });
     }
 
-    if gui.units {
+    if gui.flags.get(GuiFlag::UnitWindow) {
         egui::Window::new("Units")
             .default_width(300.0)
             .default_height(400.0)
