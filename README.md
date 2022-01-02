@@ -100,7 +100,7 @@ There are some things that Warfare doesn't care about:
 * **The real-world national origin of each side of the battlefield**. No units in this game are explicitly US, Iraqi, Russian, or any other real-world nationality. This is a game about exploring the practical considerations involved in waging war. It's not about politics or historical grudge matches. 
 * **Civilization building or peaceful coexistence**. Units can build fortifications and find some local resources, but they cannot build cities, plant crops or research technology.
 * **Historical reenactment**. This might change in the future, but for now this is a game set in the present day, using modern technology. 
-* **Poltics**. This game does not include negotiation, cease-fires, diplomacy or any other method of "waging war by other means." 
+* **Politics**. This game does not include negotiation, cease-fires, diplomacy or any other method of "waging war by other means." 
 
 There are a lot of games out there for doing the rest of this stuff, but that isn't what I want to make here.
 
