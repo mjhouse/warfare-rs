@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use std::ops::{Deref,DerefMut};
 use itertools::Itertools;
 use bimap::hash::BiHashMap;
+use std::collections::HashMap;
+use rand::Rng;
 
 use bevy::prelude::*;
 use bevy_tilemap::Tilemap;
@@ -18,7 +20,7 @@ use bevy_spicy_networking::{
     ServerNetworkEvent,
 };
 
-use crate::state::{traits::*, State};
+use crate::state::{traits::*, State, Flags};
 use crate::networking::messages::{self,*};
 use crate::generation::{Unit,id::*};
 use crate::generation::Factors;
@@ -35,6 +37,15 @@ const CONN: usize = 1;
 const DCON: usize = 2;
 const SEND: usize = 3;
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub enum NetworkFlag {
+    Host,
+    Hosting,
+    Connect,
+    Disconnect,
+    Send,
+}
+
 #[derive(Clone,Eq,PartialEq)]
 pub enum Mode {
     None,
@@ -46,15 +57,29 @@ pub struct NetworkEvents {
     messages: Vec<MessageData>,
 }
 
+#[derive(Clone)]
+pub struct Player {
+    pub id: PlayerId,
+    pub name: String,
+}
+
+pub struct Players {
+    ids: BiHashMap<ConnectionId,PlayerId>,
+    data: HashMap<PlayerId,Player>,
+}
+
 pub struct NetworkState {
-    flags: [bool;COUNT],
+    flags: Flags<NetworkFlag>,
     mode: Mode,
     address: String,
     port: u16,
     motd: String,
     events: NetworkEvents,
-    players: BiHashMap<ConnectionId,PlayerId>,
+    pub players: Players,
     player:  PlayerId,
+    confirm: bool,
+    name: String,
+    expecting: HashMap<usize,ConnectionId>,
 }
 
 impl Deref for NetworkEvents {
@@ -70,6 +95,15 @@ impl DerefMut for NetworkEvents {
     }
 }
 
+impl Default for Players {
+    fn default() -> Self {
+        Self {
+            ids: BiHashMap::new(),
+            data: HashMap::new(),
+        }
+    }
+}
+
 impl Default for NetworkEvents {
     fn default() -> Self {
         Self {
@@ -81,14 +115,63 @@ impl Default for NetworkEvents {
 impl Default for NetworkState {
     fn default() -> Self {
         Self {
-            flags: [false;COUNT],
+            flags: Flags::new(),
             mode: Mode::None,
             address: String::new(),
             port: 0,
             motd: "Welcome to Warfare!".into(),
             events: NetworkEvents::default(),
-            players: BiHashMap::new(),
+            players: Players::default(),
             player: PlayerId::new(),
+            confirm: false,
+            name: "NAME".into(),
+            expecting: HashMap::new(),
+        }
+    }
+}
+
+impl Players {
+
+    pub fn insert(&mut self, id: PlayerId, conn: ConnectionId, name: String) -> Player {
+        let player = Player { id, name };
+        self.ids.insert(conn,id);
+        self.data.insert(id,player.clone());
+        player
+    }
+
+    pub fn destroy(&mut self, conn: &ConnectionId) -> Option<Player> {
+        match self.ids.remove_by_left(conn) {
+            Some((_,id)) => {
+                self.data.remove(&id)
+            },
+            None => None,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.ids.clear();
+        self.data.clear();
+    }
+
+    pub fn get(&self, id: &PlayerId) -> Option<&Player> {
+        self.data.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &PlayerId) -> Option<&mut Player> {
+        self.data.get_mut(id)
+    }
+
+    pub fn id(&self, conn: &ConnectionId) -> Option<&PlayerId> {
+        self.ids.get_by_left(conn)
+    }
+
+    pub fn connection(&self, id: &PlayerId) -> Option<&ConnectionId> {
+        self.ids.get_by_right(id)
+    }
+
+    pub fn set_name(&mut self, id: &PlayerId, name: String) {
+        if let Some(player) = self.get_mut(id) {
+            player.name = name;
         }
     }
 }
@@ -103,47 +186,47 @@ impl NetworkEvents {
         self.messages.push(event);
     }
 
-    pub fn create_event(&mut self, sender: PlayerId, unit: Unit) {
+    pub fn create_event(&mut self, sender: PlayerId, name: String, unit: Unit) {
         self.messages.push(
             MessageData::Create(
                 UnitData {
-                    header: HeaderData::new(sender),
+                    header: HeaderData::new(sender,name),
                     unit,
                 }
             )
         );
     }
 
-    pub fn move_event(&mut self, sender: PlayerId, selections: &Vec<Selection>) {
+    pub fn move_event(&mut self, sender: PlayerId, name: String, selections: &Vec<Selection>) {
         self.messages.push(
             MessageData::Move(
                 MoveData {
-                    header: HeaderData::new(sender),
+                    header: HeaderData::new(sender,name),
                     moves: selections
                         .iter()
-                        .map(|s| (s.unit(),s.end_point(),s.cost()))
+                        .map(|s| (s.unit(),s.end_point(),s.current()))
                         .collect(),
                 }
             )
         );
     }
 
-    pub fn chat_event(&mut self, sender: PlayerId, message: String) {
+    pub fn chat_event(&mut self, sender: PlayerId, name: String, message: String) {
         self.messages.push(
             MessageData::Chat(
                 ChatData {
-                    header: HeaderData::new(sender),
+                    header: HeaderData::new(sender,name),
                     message,
                 }
             )
         );
     }
 
-    pub fn update_event(&mut self, sender: PlayerId, state: &State) {
+    pub fn update_event(&mut self, sender: PlayerId, name: String, state: &State) {
         self.messages.push(
             MessageData::Update(
                 TerrainData {
-                    header: HeaderData::new(sender),
+                    header: HeaderData::new(sender,name),
                     seed: state.seed(),
                     turn: state.turn(),
                     factors: state.factors(),
@@ -152,24 +235,25 @@ impl NetworkEvents {
         );
     }
 
-    pub fn join_event(&mut self, sender: PlayerId, player: PlayerId) {
+    pub fn join_event(&mut self, sender: PlayerId, name: String, code: usize) {
         self.messages.push(
             MessageData::Join(
                 JoinData {
-                    header: HeaderData::new(sender),
-                    player,
+                    header: HeaderData::new(sender,name.clone()),
+                    name,
+                    code,
                 }
             )
         );
     }
 
-    pub fn confirm_event(&mut self, sender: PlayerId, player: PlayerId, motd: String) {
+    pub fn confirm_event(&mut self, sender: PlayerId, name: String, motd: String, code: usize) {
         self.messages.push(
             MessageData::Confirm(
                 ConfirmData {
-                    header: HeaderData::new(sender).with_target(player),
-                    player: player,
-                    motd: motd,
+                    header: HeaderData::new(sender,name),
+                    motd,
+                    code,
                 }
             )
         );
@@ -180,67 +264,67 @@ impl NetworkEvents {
 impl NetworkState {
 
     pub fn host(&mut self, address: String, port: u16) {
-        self.flags[HOST] = true;
+        self.flags.set(NetworkFlag::Host);
         self.mode = Mode::Server;
         self.address = address;
         self.port = port;
     }
     
     pub fn connect(&mut self, address: String, port: u16) {
-        self.flags[CONN] = true;
+        self.flags.set(NetworkFlag::Connect);
         self.mode = Mode::Client;
         self.address = address;
         self.port = port;
     }
 
     pub fn disconnect(&mut self) {
-        self.flags[DCON] = true; 
+        self.flags.set(NetworkFlag::Disconnect);
     }
 
     pub fn send_create_event(&mut self, unit: Unit) {
-        self.flags[SEND] = true;
-        self.events.create_event(self.id(),unit);
+        self.flags.set(NetworkFlag::Send);
+        self.events.create_event(self.id(), self.name(), unit);
     }
 
     pub fn send_move_event(&mut self, selections: &Vec<Selection>) {
-        self.flags[SEND] = true;
-        self.events.move_event(self.id(),selections);
+        self.flags.set(NetworkFlag::Send);
+        self.events.move_event(self.id(), self.name(), selections);
     }
 
     pub fn send_chat_event(&mut self, message: String) {
-        self.flags[SEND] = true;
-        self.events.chat_event(self.id(),message);
+        self.flags.set(NetworkFlag::Send);
+        self.events.chat_event(self.id(), self.name(), message);
     }
 
     pub fn send_update_event(&mut self, state: &State) {
-        self.flags[SEND] = true;
-        self.events.update_event(self.id(),state);
+        self.flags.set(NetworkFlag::Send);
+        self.events.update_event(self.id(), self.name(), state);
     }
 
-    pub fn send_join_event(&mut self, id: PlayerId) {
-        self.flags[SEND] = true;
-        self.events.join_event(self.id(),id);
+    pub fn send_join_event(&mut self, code: usize) {
+        self.flags.set(NetworkFlag::Send);
+        self.events.join_event(self.id(), self.name(), code);
     }
 
-    pub fn send_confirm_event(&mut self, id: PlayerId) {
-        self.flags[SEND] = true;
-        self.events.confirm_event(self.id(),id,self.motd());
+    pub fn send_confirm_event(&mut self, code: usize) {
+        self.flags.set(NetworkFlag::Send);
+        self.events.confirm_event(self.id(), self.name(), self.motd(),code);
     }
 
     pub fn host_requested(&self) -> bool {
-        self.flags[HOST] 
+        self.flags.get(NetworkFlag::Host)
     }
     
     pub fn connect_requested(&self) -> bool {
-        self.flags[CONN] 
+        self.flags.get(NetworkFlag::Connect)
     }
     
     pub fn disconnect_requested(&self) -> bool {
-        self.flags[DCON] 
+        self.flags.get(NetworkFlag::Disconnect)
     }
 
     pub fn send_requested(&self) -> bool {
-        self.flags[SEND] 
+        self.flags.get(NetworkFlag::Send)
     }
 
     pub fn id(&self) -> PlayerId {
@@ -255,12 +339,24 @@ impl NetworkState {
         self.motd.clone()
     }
 
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
     pub fn is_server(&self) -> bool {
         self.mode == Mode::Server
     }
 
     pub fn is_client(&self) -> bool {
         self.mode == Mode::Client
+    }
+
+    pub fn is_confirmed(&self) -> bool {
+        self.confirm
+    }
+
+    pub fn is_hosting(&self) -> bool {
+        self.flags.get(NetworkFlag::Hosting)
     }
 
     pub fn set_server(&mut self) {
@@ -271,6 +367,10 @@ impl NetworkState {
         self.mode = Mode::Client;
     }
 
+    pub fn set_confirmed(&mut self) {
+        self.confirm = true;
+    }
+
     pub fn set_id(&mut self, id: PlayerId) {
         self.player = id;
     }
@@ -279,14 +379,42 @@ impl NetworkState {
         self.motd = motd;
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn set_flag(&mut self, flag: NetworkFlag) {
+        self.flags.set(flag);
+    }
+
     pub fn clear_mode(&mut self) {
         self.mode = Mode::None;
     }
 
     pub fn clear_flags(&mut self) {
-        self.flags
-            .iter_mut()
-            .for_each(|m| *m = false); 
+        self.flags.clear();
+    }
+
+    pub fn clear_flag(&mut self, flag: NetworkFlag) {
+        self.flags.unset(flag);
+    }
+
+    pub fn clear_confirm(&mut self) {
+        self.confirm = false;
+    }
+
+    pub fn clear_players(&mut self) {
+        self.players.clear();
+    }
+
+    pub fn start_waiting(&mut self, conn: ConnectionId) -> usize {
+        let code = rand::thread_rng().gen();
+        self.expecting.insert(code,conn);
+        code
+    }
+
+    pub fn stop_waiting(&mut self, code: usize) -> Option<ConnectionId> {
+        self.expecting.remove(&code)
     }
 
     pub fn address(&self) -> Option<SocketAddr> {
@@ -310,7 +438,7 @@ impl NetworkState {
         };
 
         if !messages::registered(&message_id) {
-            match message.target().as_ref().map(|t| self.players.get_by_right(t)).flatten() {
+            match message.target().as_ref().map(|t| self.players.connection(t)).flatten() {
                 Some(id) => match server.send_message(*id,message) {
                     Err(e) => warn!("Send failed: {}",e),
                     _ => (),
@@ -323,8 +451,9 @@ impl NetworkState {
 
     fn send_client_message<T>(&mut self, client: &NetworkClient, message: T)
         where 
-            T: ServerMessage + NetworkMessage + Clone
+            T: ServerMessage + NetworkMessage + Clone + std::fmt::Debug
     {
+        warn!("Sending: \n{:?}",&message);
         if let Err(e) = client.send_message(message) {
             warn!("Send failed: {}",e);
         };
@@ -337,7 +466,7 @@ fn host_system(
     mut client: ResMut<NetworkClient>,
     mut network: ResMut<NetworkState>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -345,10 +474,12 @@ fn host_system(
         return;
     }
 
-    // stop listening (if we were)
     server.stop();
+    client.disconnect();
+
     network.clear_mode();
     network.clear_flags();
+    network.clear_players();
 
     // start listening to new address
     match network.address() {
@@ -372,7 +503,7 @@ fn connect_system(
     mut client: ResMut<NetworkClient>,
     mut network: ResMut<NetworkState>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -380,18 +511,22 @@ fn connect_system(
         return;
     }
 
-    // stop listening (if we were)
     server.stop();
     client.disconnect();
+
     network.clear_mode();
     network.clear_flags();
+    network.clear_players();
+    network.clear_confirm();
+
+    let settings = NetworkSettings {
+        max_packet_length: 10 * 1024 * 1024,
+    };
 
     match network.address() {
         Some(address) => {
             network.set_client();
-            client.connect(address, NetworkSettings {
-                max_packet_length: 10 * 1024 * 1024,
-            });
+            client.connect(address, settings);
         },
         None => error!("Bad address"),
     }
@@ -403,7 +538,7 @@ fn disconnect_system(
     mut client: ResMut<NetworkClient>,
     mut network: ResMut<NetworkState>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -416,6 +551,8 @@ fn disconnect_system(
 
     network.clear_mode();
     network.clear_flags();
+    network.clear_players();
+    network.clear_confirm();
 
     info!("Disconnected");
 }
@@ -433,18 +570,12 @@ fn event_system(
 
     for event in events.iter() {
         match event {
-            ServerNetworkEvent::Connected(connection) => {
-                let id = PlayerId::new();
-                info!("Player {} joined", id);
-                network.players.insert(*connection,id);
-                network.send_confirm_event(id);
-                network.send_join_event(id);
+            ServerNetworkEvent::Connected(conn) => {
+                let code = network.start_waiting(*conn);
+                network.send_confirm_event(code);
             },
-            ServerNetworkEvent::Disconnected(connection) => {
-                if let Some((_,id)) = network.players.remove_by_left(connection)
-                {
-                    info!("Player {} left", id);
-                }
+            ServerNetworkEvent::Disconnected(conn) => {
+                network.players.destroy(conn);
             },
             _ => ()
         };
@@ -456,14 +587,15 @@ fn server_receive_system(
 
     state: ResMut<State>,
     gui: ResMut<GuiState>,
-
     mut network: ResMut<NetworkState>,
+
+    mut join_messages: EventReader<NetworkData<JoinMessage>>,
     mut create_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
     mut refresh_messages: EventReader<NetworkData<RefreshMessage>>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -472,7 +604,7 @@ fn server_receive_system(
     }
 
     /*
-        join:    ignore
+        join:    broadcast
         confirm: ignore
         create:  broadcast
         move:    broadcast
@@ -480,6 +612,10 @@ fn server_receive_system(
         update:  ignore
         refresh: broadcast update
     */
+
+    for message in join_messages.iter() {
+        message.apply(&mut network);
+    }
 
     for message in create_messages.iter() {
         network.send_server_message(&server,(*message).clone());
@@ -506,14 +642,13 @@ fn client_receive_system(
     mut network: ResMut<NetworkState>,
     mut tilemap: Query<&mut Tilemap>,
 
-    mut join_messages: EventReader<NetworkData<JoinMessage>>,
     mut confirm_messages: EventReader<NetworkData<ConfirmMessage>>,
     mut create_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
     mut update_messages: EventReader<NetworkData<UpdateMessage>>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -533,12 +668,11 @@ fn client_receive_system(
 
     let mut map = tilemap.single_mut().expect("Need tilemap");
 
-    for message in join_messages.iter() {
-        message.apply(&mut gui);
-    }
-
     for message in confirm_messages.iter() {
-        message.apply(&mut network, &mut gui);
+        if !network.is_confirmed() {
+            message.apply(&mut network, &mut gui);
+            network.set_confirmed();
+        }
     }
 
     for message in create_messages.iter() {
@@ -571,7 +705,7 @@ fn server_send_system(
     mut gui: ResMut<GuiState>,
     mut network: ResMut<NetworkState>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -587,7 +721,7 @@ fn server_send_system(
 
     for message in network.events.take().into_iter() {
         match message {
-            MessageData::Chat(v)    => network.send_server_message(&server,ChatMessage::new(v,)),
+            MessageData::Chat(v)    => network.send_server_message(&server,ChatMessage::new(v)),
             MessageData::Create(v)  => network.send_server_message(&server,CreateMessage::new(v)),
             MessageData::Move(v)    => network.send_server_message(&server,MoveMessage::new(v)),
             MessageData::Refresh(v) => network.send_client_message(&client,RefreshMessage::new(v)),
@@ -606,7 +740,7 @@ fn client_send_system(
     mut gui: ResMut<GuiState>,
     mut network: ResMut<NetworkState>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 

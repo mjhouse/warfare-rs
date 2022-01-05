@@ -66,7 +66,7 @@ fn overlay_update_system(
     mut keys: EventReader<KeyboardInput>,
     mut map_query: Query<&mut Tilemap>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 

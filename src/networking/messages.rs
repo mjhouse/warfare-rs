@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use bevy_tilemap::Tilemap;
 
 use bevy_spicy_networking::{
+    ConnectionId,
     ClientMessage,
     NetworkMessage,
     ServerMessage,
@@ -41,7 +42,7 @@ macro_rules! register {
 
 macro_rules! message {
     ( $d: ident, $n: ident ( $v: ty )) => {
-        #[derive(Serialize, Deserialize, Clone, Debug, Default)]
+        #[derive(Serialize, Deserialize, Clone, Debug)]
         pub struct $n($v);
 
         impl $n {
@@ -78,6 +79,10 @@ macro_rules! message {
                 self.0.header.sender
             }
 
+            fn name(&self) -> String {
+                self.0.header.name.clone()
+            }
+
             fn id(&self) -> Option<MessageId> {
                 self.0.header.id.clone()
             }
@@ -111,6 +116,8 @@ pub trait Message {
 
     fn sender(&self) -> PlayerId;
 
+    fn name(&self) -> String;
+
     fn id(&self) -> Option<MessageId>;
 
     fn set_id(&mut self, id: MessageId);
@@ -120,19 +127,21 @@ pub trait Message {
 
 pub struct MessagePlugin;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HeaderData {
     pub id: Option<MessageId>,
     pub target: Option<PlayerId>,
     pub sender: PlayerId,
+    pub name: String,
 }
 
 impl HeaderData {
-    pub fn new(sender: PlayerId) -> Self {
+    pub fn new(sender: PlayerId, name: String) -> Self {
         Self {
             id:     None,
             target: None,
             sender: sender,
+            name:   name,
         }
     }
     pub fn with_target(mut self, target: PlayerId) -> Self {
@@ -141,43 +150,44 @@ impl HeaderData {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EmptyData {
     pub header: HeaderData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JoinData {
     pub header: HeaderData,
-    pub player: PlayerId,
+    pub name: String,
+    pub code: usize,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConfirmData {
     pub header: HeaderData,
-    pub player: PlayerId,
     pub motd: String,
+    pub code: usize,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UnitData {
     pub header: HeaderData,
     pub unit: Unit,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MoveData {
     pub header: HeaderData,
     pub moves: Vec<(Id,Point,u8)>
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChatData {
     pub header: HeaderData,
     pub message: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TerrainData {
     pub header: HeaderData,
     pub seed: u32,
@@ -229,19 +239,19 @@ macro_rules! require {
 }
 
 macro_rules! require_client {
-    ( $network: ident ) => { require!($network.is_client()) }
+    ( $network: ident ) => { require!($network.is_client(),"Must be client") }
 }
 
 macro_rules! require_server {
-    ( $network: ident ) => { require!($network.is_server()) }
+    ( $network: ident ) => { require!($network.is_server(),"Must be server") }
 }
 
 macro_rules! require_other {
-    ( $network: ident, $id: expr ) => { require!(($network.id() == $id)) }
+    ( $network: ident, $id: expr ) => { require!(($network.id() != $id),"Must be other") }
 }
 
 macro_rules! require_registered {
-    ( $message: ident ) => { require!(($message.id().is_some())) }
+    ( $message: ident ) => { require!(($message.id().is_some()),"Must be registered") }
 }
 
 static MESSAGES: Lazy<Mutex<HashSet<MessageId>>> = Lazy::new(|| Mutex::new(HashSet::new()));
@@ -259,21 +269,27 @@ pub fn register(id: &MessageId) {
 }
 
 impl JoinMessage {
-    pub fn apply(&self, gui: &mut GuiState) {
-        gui.add_message(self.sender(),
-            format!("Player {} has joined",self.value().player));
+    pub fn apply(&self, network: &mut NetworkState) {
+        require_server!(network);
+        if let Some(conn) = network.stop_waiting(self.value().code) {
+            let player = network.players.insert(
+                self.sender(),
+                conn,
+                self.value().name.clone(),
+            );
+            warn!("player joined: {} ({})",player.name,player.id);
+        }
     }
 }
 
 impl ConfirmMessage {
     pub fn apply(&self, network: &mut NetworkState, gui: &mut GuiState) {
-        require_other!(network,self.sender()); // cannot apply to self
         require_registered!(self);
-
-        let data = self.value();
-        network.set_id(data.player);
-        network.set_motd(data.motd.clone());
-        gui.add_message(self.sender(),data.motd.clone());
+        network.send_join_event(self.value().code);
+        gui.add_message(
+            "Server".into(),
+            self.value().motd.clone(),
+        );
     }
 }
 
@@ -299,18 +315,13 @@ impl MoveMessage {
     pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
         require_other!(network,self.sender()); // cannot apply to self
         require_registered!(self);
-
-        // TODO: apply actions to moved units
-        // group by point-being-moved-to and select + move all units
         let data = self.value();
         for (point,moves) in data.moves.iter().group_by(|m| m.1).into_iter() {
-            let ids = moves
+            let movement = moves
                 .into_iter()
-                .map(|m| m.0)
+                .map(|m| (m.0,m.2))
                 .collect();
-            state.units.select(&ids);
-            state.units.move_selection(map,&point);
-            state.units.select_none_free();
+            state.units.transfer(map,movement,point);
         }
     }
 }
@@ -318,9 +329,8 @@ impl MoveMessage {
 impl ChatMessage {
     pub fn apply(&self, network: &NetworkState, gui: &mut GuiState) {
         require_registered!(self);
-        
         gui.add_message(
-            self.sender(),
+            self.name(),
             self.value().message.clone());
     }
 }

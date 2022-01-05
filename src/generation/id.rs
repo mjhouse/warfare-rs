@@ -12,9 +12,30 @@ use std::{
     fmt,
 };
 
+const INITIAL: usize = 1;
+const ORDERING: Ordering = Ordering::SeqCst;
+
+pub enum IdType {
+    Unit,
+    Player,
+    Message,
+}
+
 macro_rules! increment {
     ( $atomic: ident ) => {
-        $atomic.fetch_add(1, Ordering::SeqCst)
+        $atomic.fetch_add(1, ORDERING)
+    }
+}
+
+macro_rules! load {
+    ( $atomic: ident ) => {
+        $atomic.load(ORDERING)
+    }
+}
+
+macro_rules! store {
+    ( $atomic: ident, $value: expr ) => {
+        $atomic.store($value,ORDERING)
     }
 }
 
@@ -22,7 +43,7 @@ macro_rules! identifier {
     ( $name: ident, $atomic: ident ) => {
 
         // backing global counter for id generation
-        static $atomic: AtomicUsize = AtomicUsize::new(1);
+        static $atomic: AtomicUsize = AtomicUsize::new(INITIAL);
 
         // wrapper id struct
         #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq, PartialEq)]
@@ -32,6 +53,11 @@ macro_rules! identifier {
             
             pub fn new() -> Self {
                 $name(increment!($atomic))
+            }
+
+            pub fn reset() -> Self {
+                store!($atomic,INITIAL);
+                Self::new()
             }
 
             pub fn inner(self) -> usize {
@@ -56,23 +82,16 @@ macro_rules! identifier {
 }
 
 macro_rules! identifier_ex {
-    ( $name: ident, $atomic: ident ) => {
-
-        // backing global counter for id generation
-        static $atomic: AtomicUsize = AtomicUsize::new(0);
+    ( $name: ident) => {
 
         // wrapper id struct
         #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq, PartialEq)]
-        pub struct $name(usize);
+        pub struct $name(uuid::Uuid);
 
         impl $name {
             
             pub fn new() -> Self {
-                $name(increment!($atomic))
-            }
-
-            pub fn inner(self) -> usize {
-                self.0
+                $name(uuid::Uuid::new_v4())
             }
 
         }
@@ -82,16 +101,9 @@ macro_rules! identifier_ex {
                 write!(f, "{}", self.0)
             }
         }
-
-        impl ops::Deref for $name {
-            type Target = usize;
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
     }
 }
 
-identifier!(Id,ID);
-identifier!(PlayerId,PLAYER);
-identifier_ex!(MessageId,MESSAGE);
+identifier_ex!(Id);
+identifier_ex!(PlayerId);
+identifier_ex!(MessageId);

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::generation::{id, Id, LayerUse, Marker};
+use crate::generation::{Id, PlayerId, LayerUse, Marker};
 use crate::objects::Name;
 use crate::objects::Point;
 use crate::state::demographics::{Demographics, Sex};
@@ -119,6 +119,15 @@ pub struct Unit {
     /// globally unique id
     id: Id,
 
+    /// the name of this unit
+    name: String,
+
+    /// the player that owns this unit
+    player_id: PlayerId,
+
+    /// the name of the owning player
+    player_name: String,
+
     /// display information
     marker: Marker,
 
@@ -129,10 +138,15 @@ pub struct Unit {
     soldiers: Vec<Soldier>,
 }
 
-impl Default for Unit {
-    fn default() -> Self {
+impl Unit {
+    pub fn new(id: PlayerId) -> Self {
         Self {
             id: Id::new(),
+            name: "".into(),
+
+            player_id: id,
+            player_name: "".into(),
+
             marker: Marker {
                 layer: 0,
                 texture: 0,
@@ -142,11 +156,16 @@ impl Default for Unit {
             soldiers: vec![],
         }
     }
-}
 
-impl Unit {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn with_name(mut self, name: String) -> Self {
+        self.name = name;
+        self
+    }
+
+    pub fn with_player(mut self, id: PlayerId, name: String) -> Self {
+        self.player_id = id;
+        self.player_name = name;
+        self
     }
 
     pub fn with_specialty(mut self, specialty: Specialty) -> Self {
@@ -221,6 +240,18 @@ impl Unit {
 
     pub fn specialty(&self) -> Specialty {
         self.specialty.clone()
+    }
+
+    pub fn player_id(&self) -> PlayerId {
+        self.player_id.clone()
+    }
+
+    pub fn player_name(&self) -> String {
+        self.player_name.clone()
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }
 

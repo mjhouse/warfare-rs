@@ -1,4 +1,4 @@
-use crate::generation::id::Id;
+use crate::generation::id::{Id,PlayerId};
 use crate::generation::Unit;
 use crate::objects::Point;
 use crate::state::traits::HasId;
@@ -69,9 +69,8 @@ impl Selection {
         Point::from_index(self.end as i32)
     }
 
-    pub fn cost(&self) -> u8 {
-        let (i,c) = self.actions;
-        i.saturating_sub(c)
+    pub fn current(&self) -> u8 {
+        self.actions.1
     }
 
     pub fn unit(&self) -> Id {
@@ -208,13 +207,11 @@ impl Map {
         self.selected.clear();
     }
 
-    pub fn select_none_free(&mut self) {
-        self.selected.clear();
-    }
-
-    pub fn select_top(&mut self, point: &Point) {
+    pub fn select_top(&mut self, owner: PlayerId, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
-            self.selected = vec![Selection::new(&point,unit)];
+            if unit.player_id() == owner {
+                self.selected = vec![Selection::new(&point,unit)];
+            }
         }
     }
 
@@ -243,13 +240,37 @@ impl Map {
                 .collect());
     }
 
-    pub fn select_ids(&mut self, point: &Point, ids: Vec<Id>) {
+    pub fn select_ids(&mut self, owner: PlayerId, point: &Point, ids: Vec<Id>) {
         self.selected
             .append(&mut self
                 .get_ids(&point,&ids)
                 .iter()
+                .filter(|u| u.player_id() == owner)
                 .map(|u| Selection::new(&point,u))
                 .collect());
+    }
+
+    pub fn transfer(&mut self, map: &mut Tilemap, moves: Vec<(Id,u8)>, point: Point) {
+        let ids = moves
+            .iter()
+            .map(|m| m.0)
+            .collect();
+
+        self.select(&ids);
+        self.move_selection(map,&point);
+
+        let zipped = self
+            .selected
+            .iter_mut()
+            .zip(moves
+                .iter()
+                .map(|m| m.1));
+
+        for (selection,current) in zipped {
+            selection.actions.1 = current;
+        }
+
+        self.select_none();
     }
 
     pub fn select_return(&mut self, map: &mut Tilemap) {

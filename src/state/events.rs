@@ -6,7 +6,6 @@ pub enum Action {
     UpdateTerrain,
     UpdateOverlay,
     PlaceUnit,
-    SelectionChanged,
 }
 
 #[derive(Default, Clone)]

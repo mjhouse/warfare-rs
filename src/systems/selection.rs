@@ -3,22 +3,29 @@ use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use bevy_tilemap::{Tile, Tilemap};
 use std::collections::HashSet;
-
-use crate::generation::LayerUse;
+use crate::generation::{LayerUse, Specialty, Unit};
 use crate::math::MidRound;
 use crate::state::{traits::*, Action, State};
 use crate::systems::camera::Camera;
 use crate::behavior::Pathfinder;
-use crate::generation::Unit;
 use crate::generation::id::Id;
 use crate::resources::Label;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
-
+use crate::state::Flags;
 use crate::objects::Point;
+
 pub struct SelectionPlugin;
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub enum SelectionFlag {
+    Place,
+    Hovering,a
+}
+
 pub struct Selection {
+    pub flags: Flags<SelectionFlag>,
+
     /// the position of the pointer
     pub position: Vec2,
 
@@ -34,8 +41,6 @@ pub struct Selection {
     // the position we're dragging to
     pub dragging: (i32, i32),
 
-    pub actions: Option<i32>,
-
     /// the path from the initial position
     pub path: Vec<Point>,
 
@@ -45,9 +50,11 @@ pub struct Selection {
     /// the key that cancels selection
     pub release: KeyCode,
 
-    pub interacting: bool,
-
+    /// ids of multiple selected units
     pub units: HashSet<Id>,
+
+    /// name to give to the next placed unit
+    pub unit_name: String,
 }
 
 impl Selection {
@@ -77,22 +84,35 @@ impl Selection {
     pub fn remove(&mut self, unit: &Unit) -> bool {
         self.units.remove(unit.id())
     }
+
+    pub fn place_requested(&self) -> bool {
+        self.flags.get(SelectionFlag::Place)
+    }
+
+    pub fn place_request(&mut self, name: String) -> bool {
+        self.unit_name = name;
+        self.flags.set(SelectionFlag::Place)
+    }
+
+    pub fn clear_flags(&mut self) {
+        self.flags.clear();
+    }
 }
 
 impl Default for Selection {
     fn default() -> Self {
         Self {
+            flags: Flags::new(),
             position: Vec2::ZERO,
             hovered: (0, 0),
             hovering: false,
             selected: (0, 0),
             dragging: (0, 0),
-            actions: None,
             path: vec![],
             button: MouseButton::Left,
             release: KeyCode::Escape,
-            interacting: false,
             units: HashSet::new(),
+            unit_name: "".into(),
         }
     }
 }
@@ -105,16 +125,12 @@ fn selected_position_system(
     camera: Query<&Transform, With<Camera>>,
     mut query: Query<&mut Selection>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
     let window = windows.get_primary().unwrap();
     let mut selection = query.single_mut().expect("Need selection");
-
-    if selection.interacting {
-        return;
-    }
 
     if !selection.hovering {
         return;
@@ -146,17 +162,13 @@ fn selected_hovered_system(
     mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
     let window = windows.get_primary().unwrap();
     let tilemap = map_query.single_mut().expect("Need tilemap");
     let mut selection = sel_query.single_mut().expect("Need selection");
-
-    if selection.interacting {
-        return;
-    }
 
     if !selection.hovering {
         return;
@@ -175,74 +187,6 @@ fn selected_hovered_system(
     }
 }
 
-fn pathfind() {
-    // let impedance = state.impedance_map();
-
-    // let initial = state
-    //     .find_unit(&old_point)
-    //     .map(|u| u.actions())
-    //     .unwrap_or(0) as i32;
-
-    // let mut actions = initial;
-
-    // let start: Point = selection.start.unwrap_or(old_point).into();
-    // let end: Point = new_point.into();
-
-    // // find a path and shorten until actions
-    // // is negative (no more action points)
-    // let finder = Pathfinder::new(impedance, start.clone(), end.clone());
-
-    // let mut path = finder
-    //     .find_weighted()
-    //     .into_iter()
-    //     .filter(|(_, c)| {
-    //         actions -= (*c) as i32;
-    //         actions >= 0
-    //     })
-    //     .map(|(p, _)| p)
-    //     .collect::<Vec<Point>>();
-
-    // // if there is at least one point in the path,
-    // // then display the path and allow the unit to move.
-    // if let Some(end_point) = path.last().cloned() {
-    //     path = path.into_iter().filter(|&p| p != end_point).collect();
-
-    //     let points = selection
-    //         .path
-    //         .iter()
-    //         .map(|p| (p.integers(), layer))
-    //         .collect::<Vec<((i32, i32), usize)>>();
-
-    //     let tiles = path
-    //         .iter()
-    //         .map(|p| Tile {
-    //             point: p.integers(),
-    //             sprite_order: layer,
-    //             sprite_index: blank,
-    //             tint: Color::rgba(1., 1., 1., 0.25),
-    //         })
-    //         .collect::<Vec<Tile<(i32, i32)>>>();
-
-    //     if let Err(e) = tilemap.clear_tiles(points) {
-    //         log::warn!("{:?}", e);
-    //     }
-
-    //     if let Err(e) = tilemap.insert_tiles(tiles) {
-    //         log::warn!("{:?}", e);
-    //     }
-
-    //     selection.path = path;
-    //     selection.actions = Some(initial - actions.max(0));
-
-    //     if let Some(unit) = state.find_unit(&old_point) {
-    //         if let Err(e) = unit.moveto(&mut tilemap, end_point.clone()) {
-    //             log::warn!("{:?}", e);
-    //         }
-    //         selection.unit = Some(end_point.integers());
-    //     }
-    // }
-}
-
 fn selected_highlight_system(
     mut state: ResMut<State>,
     windows: Res<Windows>,
@@ -252,7 +196,7 @@ fn selected_highlight_system(
     mut sel_query: Query<&mut Selection>,
     mut map_query: Query<&mut Tilemap>,
 ) {
-    if !state.loaded {
+    if !state.is_loaded() {
         return;
     }
 
@@ -266,10 +210,6 @@ fn selected_highlight_system(
         .expect("Need selection layer");
 
     let blank = state.textures.get(Label::Blank);
-
-    if selection.interacting {
-        return;
-    }
 
     if !selection.hovering {
         return;
@@ -286,10 +226,14 @@ fn selected_highlight_system(
         if inputs.just_pressed(selection.button) {
             selection.selected = selection.hovered;
             if selection.units.is_empty() {
-                state.units.select_top(&selection.selected.into());
+                state.units.select_top(
+                    network.id(),
+                    &selection.selected.into(),
+                );
             }
             else {
                 state.units.select_ids(
+                    network.id(),
                     &selection.selected.into(),
                     selection.units.drain().collect(),
                 );
@@ -298,7 +242,10 @@ fn selected_highlight_system(
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
-            network.send_move_event(&state.units.selected());
+            let selected = state.units.selected();
+            if !selected.is_empty() {
+                network.send_move_event(&state.units.selected());
+            }
             state.units.select_none();
             selection.clear_path(&mut map,layer);
             selection.units.clear();
@@ -334,11 +281,50 @@ fn selected_highlight_system(
 
 }
 
+/// React to placement requests and create a new unit.
+fn selected_place_system(
+    mut state: ResMut<State>,
+    mut network: ResMut<NetworkState>,
+    inputs: Res<Input<MouseButton>>,
+    mut map_query: Query<&mut Tilemap>,
+    mut sel_query: Query<&mut Selection>,
+) {
+    if !state.is_loaded() {
+        return;
+    }
+
+    let mut tilemap = map_query.single_mut().expect("Need tilemap");
+    let mut selection = sel_query.single_mut().expect("Need selection");
+
+    if selection.place_requested() {
+        if inputs.just_pressed(selection.button) {
+            if let Some(_) = state.areas.get(&selection.hovered) {
+                let point: Point = selection.hovered.into();
+                
+                // add a unit to the map
+                let unit = Unit::new(network.id())
+                    .with_name(selection.unit_name.clone())
+                    .with_player(network.id(),network.name())
+                    .with_specialty(Specialty::Infantry)
+                    .with_soldiers(100)
+                    .with_position(point.clone())
+                    .build(&state);
+
+                unit.insert(&mut tilemap);
+                state.units.add(point,unit.clone());
+                network.send_create_event(unit);
+            }
+            selection.clear_flags();
+        }
+    }
+}
+
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(selected_position_system.system()); // get world position of pointer
-        app.add_system(selected_hovered_system.system()); // convert world position to hovered tile
-        app.add_system(selected_highlight_system.system()); // highlight hovered tile on click
+        app.add_system(selected_position_system.system())
+           .add_system(selected_hovered_system.system())
+           .add_system(selected_highlight_system.system())
+           .add_system(selected_place_system.system());
     }
 }
 

@@ -18,7 +18,7 @@ pub enum GuiFlag {
 }
 
 pub struct Message {
-    player: PlayerId,
+    player:  String,
     content: String,
 }
 
@@ -26,6 +26,8 @@ pub struct GuiState {
     flags: Flags<GuiFlag>,
     ip: String,
     port: u16,
+    name: String,
+    unit_name: String,
     message: String,
     pub history: Vec<Message>,
 }
@@ -36,6 +38,8 @@ impl Default for GuiState {
             flags: Flags::new(),
             ip: "127.0.0.1".into(),
             port: 8080,
+            name: "None".into(),
+            unit_name: "".into(),
             message: "".into(),
             history: vec![],
         }
@@ -43,7 +47,7 @@ impl Default for GuiState {
 }
 
 impl GuiState {
-    pub fn add_message(&mut self, player: PlayerId, content: String) {
+    pub fn add_message(&mut self, player: String, content: String) {
         self.history.push(Message {
             player,
             content,
@@ -235,7 +239,8 @@ fn gui_display_system(
                     ui.add_space(10.);
                     ui.heading("Info");
                     
-                    ui.monospace(format!("ID:     {}", unit.id()));
+                    ui.monospace(format!("Name:   {}", unit.name()));
+                    ui.monospace(format!("Player: {}", unit.player_name()));
                     ui.monospace(format!("Type:   {:?}", unit.specialty()));
                     ui.monospace(format!("AP:     {}", unit.actions()));
                     ui.monospace(format!("Max AP: {}", unit.max_actions()));
@@ -313,13 +318,19 @@ fn gui_display_system(
                 }
             });
 
+            ui.horizontal(|ui| {
+                ui.monospace("name: ");
+                ui.text_edit_singleline(&mut gui.name);
+            });
 
             ui.horizontal(|ui| {
                 if ui.button("Host").clicked() {
+                    network.set_name(gui.name.clone());
                     network.host(gui.ip.clone(),gui.port);
                 }
 
                 if ui.button("Connect").clicked() {
+                    network.set_name(gui.name.clone());
                     network.connect(gui.ip.clone(),gui.port);
                 }
 
@@ -388,16 +399,21 @@ fn gui_display_system(
             .default_height(400.0)
             .show(context.ctx(), |ui| {
                 ui.horizontal(|ui| {
+                    ui.monospace("name: ");
+                    ui.text_edit_singleline(&mut gui.unit_name);
+                });
+
+                ui.horizontal(|ui| {
                     if ui.button("Infantry").clicked() {
-                        state.events.send(Action::PlaceUnit);
+                        selection.place_request(gui.unit_name.clone());
                     }
 
                     if ui.button("Armor").clicked() {
-                        state.events.send(Action::PlaceUnit);
+                        selection.place_request(gui.unit_name.clone());
                     }
 
                     if ui.button("Militia").clicked() {
-                        state.events.send(Action::PlaceUnit);
+                        selection.place_request(gui.unit_name.clone());
                     }
                 });
 
@@ -407,7 +423,7 @@ fn gui_display_system(
             });
     }
     
-    dbg!(selection.hovering);
+    // dbg!(selection.hovering);
 }
 
 fn hovered(window: &Window, ui: &egui::Ui) -> bool {

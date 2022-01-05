@@ -182,7 +182,7 @@ fn generator_configure_system(
             map.spawn_chunk((0, 0)).unwrap();
 
             // set loaded flag
-            state.loaded = true;
+            state.set_loaded();
 
             // update overlay
             state.events.send(Action::UpdateOverlay);

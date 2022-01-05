@@ -9,12 +9,18 @@ use crate::objects::Point;
 use crate::objects::Map;
 use crate::resources::{Spectrum, Textures, Label};
 use crate::state::Action;
+use crate::state::Flags;
 
 use crate::state::{traits::*, Calendar, Events};
 use crate::networking::messages::*;
 use crate::generation::{bounds, Area, Attribute, Cursor, Factors, Generator, Layers, Unit};
 
 static CONTEXT: Lazy<Mutex<Context>> = Lazy::new(|| Mutex::new(Context::default()));
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub enum StateFlag {
+    Loaded,
+}
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -32,8 +38,9 @@ pub struct Terrain {
     pub size: String,
 }
 
-#[derive(Clone)]
 pub struct State {
+    flags: Flags<StateFlag>,
+
     /// tile icon resources
     pub textures: Textures,
 
@@ -57,9 +64,6 @@ pub struct State {
 
     /// terrain flags and information
     pub terrain: Terrain,
-
-    /// resource loaded flag
-    pub loaded: bool,
 
     /// events for systems
     pub events: Events,
@@ -87,6 +91,7 @@ impl Default for Context {
 impl Default for State {
     fn default() -> Self {
         Self {
+            flags: Flags::new(),
             textures: Default::default(),
             layers: Default::default(),
             factors: Default::default(),
@@ -95,7 +100,6 @@ impl Default for State {
             tiles: Default::default(),
             overlay: Default::default(),
             terrain: Default::default(),
-            loaded: Default::default(),
             events: Default::default(),
             calendar: Default::default(),
             units: Map::new(),
@@ -175,6 +179,14 @@ impl Context {
 }
 
 impl State {
+    pub fn is_loaded(&self) -> bool {
+        self.flags.get(StateFlag::Loaded)
+    }
+
+    pub fn set_loaded(&mut self) {
+        self.flags.set(StateFlag::Loaded);
+    }
+
     pub fn sync(&mut self, data: TerrainData) {
         self.terrain.seed = format!("{}",data.seed);
         self.calendar = Calendar::from_turn(data.turn);

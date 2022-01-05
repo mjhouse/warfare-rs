@@ -68,7 +68,6 @@ fn main() {
         .add_plugin(systems::overlay::OverlayPlugin)
         .add_plugin(systems::icon::IconPlugin)
         .add_plugin(systems::generate::GeneratorPlugin)
-        .add_plugin(systems::control::ControlPlugin)
         .add_startup_system(setup.system())
         .run()
 }
