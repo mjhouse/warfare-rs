@@ -6,6 +6,8 @@ You can see the latest progress on [YouTube](https://www.youtube.com/channel/UCt
 
 ## Proposed Features
 
+* Up to four players in a large map (over LAN or internet)
+* Rich chat that allows players to link to locations/units
 * Procedurally generated maps up to 1000x1000 tiles (406k sq/mi)
 * Seasons and day/night cycles that affect the environment
 * Simulated plant growth, water cycles etc.
@@ -14,26 +16,33 @@ You can see the latest progress on [YouTube](https://www.youtube.com/channel/UCt
 * Most unit attributes (veteran status, accuracy etc.) are aggregations of included soldier attributes
 * Units can be re-structured and individual soldiers can be re-assigned
 
-There may be more.
+I'll expand this list as I go along.
 
 ## Implemented Features
 
 * Basic hex map generation up to 1000x1000
 * Generation for the following attributes:
+    * Biome
+    * Soil type
     * Elevation
-    * Moisture
     * Temperature
+    * Fertility
+    * Rockiness
+    * Moisture
 * Overlays for viewing attributes (elevation heatmap etc.)
 * Simple UI for modifying attributes at runtime
+* Units can be created and placed
+* Created units have simulated soldiers
+* Basic LAN networking
+* Simple chat application
 
 ## Goals
 
-The goal here is total battlefield simulation. Everything from the rockiness of the soil to cloud cover should have *some* impact, no matter how small, and everything should interact with everything else. Below, I've broken the gameplay down into a few large categories to make it easier to discuss.
+The goal here is total battlefield simulation. Everything from the rockiness of the soil to cloud cover should have *some* impact (no matter how small) and everything should interact with everything else. Below, I've broken the gameplay down into a few large categories to make it easier to discuss.
 
 (*from here on, present tense is used even if the feature hasn't been implemented because I don't want to have to incrementally update these sections as features are added to the game*)
 
 ### Terrain and Environment
-
 
 Terrain is made up of a grid of hexagonal tiles. Each tile is considered to be roughly 0.25 by 0.21 miles (0.0406 sq/mi) and has the following attributes:
 
@@ -112,27 +121,45 @@ If you want to contribute, make a pull request.
 
 This project is developed entirely on Ubuntu 20.04. There shouldn't be any issue building on another OS and the game doesn't have any platform-specific code, but there might be issues I don't know about. To build, you need [rust installed](https://www.rust-lang.org/tools/install). I'm using rustc=1.53.0.
 
-On **Ubuntu/Debian**, run this command first:
+### Ubuntu / Debian
+
+To install rust, run these commands in a terminal:
+```
+curl https://sh.rustup.rs -sSf | sh || exit 1;
+source $HOME/.cargo/env;
+```
+
+Install these dependencies in the terminal:
 
 ```
-sudo apt install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+sudo apt install -y    \
+    curl               \
+    libasound2-dev     \
+    libudev-dev        \
+    libxcb-render0-dev \
+    libxcb-shape0-dev  \
+    libxcb-xfixes0-dev;
 ```
 
-Then on **all platforms** (need to be in a git terminal on windows):
+Then:
 
 ```
 $ git clone https://github.com/mjhouse/warfare-rs.git
-$ cd warfare-rs
+$ cd warfare-rs && cargo run
 ```
 
-Then build and run warfare:
+### Other platforms
 
-```
-cargo run
-```
+Untested and I'm not sure what dependencies you'll need. If you get Warfare to build/run on another platform, submit a merge request to update this part of the README or send me an email and I'll do it myself.
 
 ## Tests
 
+Warfare has some tests, although it's far from 100% code coverage. To execute all tests, run the following command in the root directory:
+```
+cargo test -- --test-threads=1
+```
+
+Some tests just print output:
 ```
 cargo test -- --test-threads=1 --nocapture --show-output
 ```
