@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::generation::{Biome, Soil};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug)]
 pub struct Factors {
     pub elevation: u8,
     pub temperature: u8,

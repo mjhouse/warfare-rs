@@ -7,14 +7,15 @@ use crate::state::traits::*;
 use crate::state::State;
 use crate::resources::Label;
 use rand_pcg::Pcg64;
+use crate::networking::messages::PlayerData;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Specialty {
     Infantry,
+    Armor,
+    Militia,
     Medical,
-    Logistics,
-    Tanks,
-    Driver,
+    Logistics,    
     Mechanic,
     // ... etc
 }
@@ -128,6 +129,9 @@ pub struct Unit {
     /// the name of the owning player
     player_name: String,
 
+    /// the join order of the player
+    player_order: u8,
+
     /// display information
     marker: Marker,
 
@@ -146,6 +150,7 @@ impl Unit {
 
             player_id: id,
             player_name: "".into(),
+            player_order: 0,
 
             marker: Marker {
                 layer: 0,
@@ -162,9 +167,10 @@ impl Unit {
         self
     }
 
-    pub fn with_player(mut self, id: PlayerId, name: String) -> Self {
-        self.player_id = id;
-        self.player_name = name;
+    pub fn with_player(mut self, player: PlayerData) -> Self {
+        self.player_id = player.id;
+        self.player_name = player.name.clone();
+        self.player_order = player.order as u8;
         self
     }
 
@@ -190,13 +196,23 @@ impl Unit {
             .get(&LayerUse::Units)
             .expect("Must have unit layer");
 
-        self.marker.texture = state.textures.get(Label::Unit);
+        self.marker.texture = state.textures.unit(&self.specialty,self.player_order);
 
         for _ in 0..self.soldiers.capacity() {
             self.soldiers.push(
                 Soldier::new(&self.specialty));
         }
 
+        self
+    }
+
+    pub fn rebuild(mut self, state: &State) -> Self {
+        self.marker.layer = state
+            .layers
+            .get(&LayerUse::Units)
+            .expect("Must have unit layer");
+
+        self.marker.texture = state.textures.unit(&self.specialty,self.player_order);
         self
     }
 

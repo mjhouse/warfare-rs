@@ -3,9 +3,9 @@ use chrono::Datelike;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 /// default year
-const YEAR: i32 = 2021;
+const YEAR: i32 = 2022;
 
-#[derive(Clone)]
+#[derive(Eq,PartialEq,Clone)]
 pub enum Season {
     Spring,
     Summer,
@@ -13,7 +13,7 @@ pub enum Season {
     Winter,
 }
 
-#[derive(Clone)]
+#[derive(Eq,PartialEq,Clone)]
 pub struct Calendar {
     turn: u32,
     date: NaiveDate,

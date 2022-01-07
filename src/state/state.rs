@@ -187,11 +187,17 @@ impl State {
         self.flags.set(StateFlag::Loaded);
     }
 
-    pub fn sync(&mut self, data: TerrainData) {
-        self.terrain.seed = format!("{}",data.seed);
-        self.calendar = Calendar::from_turn(data.turn);
-        self.factors = data.factors;
-        self.events.send(Action::UpdateTerrain);
+    pub fn sync(&mut self, data: &UpdateData) {
+        let seed = format!("{}",data.seed);
+        let calendar = Calendar::from_turn(data.turn);
+        let factors = data.factors.clone();
+
+        if self.terrain.seed != seed || self.calendar != calendar || self.factors != factors {
+            self.terrain.seed = seed;
+            self.calendar = calendar;
+            self.factors = factors;
+            self.events.send(Action::UpdateTerrain);
+        }
     }
 
     pub fn seed(&self) -> u32 {

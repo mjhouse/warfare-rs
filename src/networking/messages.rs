@@ -3,6 +3,7 @@ use itertools::Itertools;
 use std::sync::Mutex;
 use std::collections::HashSet;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_tilemap::Tilemap;
@@ -26,6 +27,21 @@ use crate::systems::gui::GuiState;
 use crate::state::State;
 use crate::resources::Label;
 use crate::state::traits::*;
+
+// messages that have been rebroadcasted
+static MESSAGES: Lazy<Mutex<HashSet<MessageId>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+pub fn check_applied(id: MessageId) -> bool {
+    MESSAGES.lock()
+            .expect("failed to lock applied list")
+            .contains(&id)
+}
+
+pub fn mark_applied(id: MessageId) {
+    MESSAGES.lock()
+            .expect("failed to lock applied list")
+            .insert(id);
+}
 
 macro_rules! name {
     ( $n: ident ) => {
@@ -71,10 +87,6 @@ macro_rules! message {
         }
 
         impl Message for $n {
-            fn target(&self) -> Option<PlayerId> {
-                self.0.header.target
-            }
-
             fn sender(&self) -> PlayerId {
                 self.0.header.sender
             }
@@ -112,8 +124,6 @@ macro_rules! message {
 
 pub trait Message {
 
-    fn target(&self) -> Option<PlayerId>;
-
     fn sender(&self) -> PlayerId;
 
     fn name(&self) -> String;
@@ -121,6 +131,18 @@ pub trait Message {
     fn id(&self) -> Option<MessageId>;
 
     fn set_id(&mut self, id: MessageId);
+
+    fn is_registered(&self) -> bool {
+        self.id().is_some()
+    }
+
+    fn is_applied(&self) -> bool {
+        self.id().map(check_applied).unwrap_or(false)
+    }
+
+    fn set_applied(&self) {
+        self.id().map(mark_applied);
+    }
 
     fn data(&self) -> MessageData;
 }
@@ -130,7 +152,6 @@ pub struct MessagePlugin;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HeaderData {
     pub id: Option<MessageId>,
-    pub target: Option<PlayerId>,
     pub sender: PlayerId,
     pub name: String,
 }
@@ -139,14 +160,9 @@ impl HeaderData {
     pub fn new(sender: PlayerId, name: String) -> Self {
         Self {
             id:     None,
-            target: None,
             sender: sender,
             name:   name,
         }
-    }
-    pub fn with_target(mut self, target: PlayerId) -> Self {
-        self.target = Some(target);
-        self
     }
 }
 
@@ -188,11 +204,19 @@ pub struct ChatData {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TerrainData {
+pub struct PlayerData {
+    pub id: PlayerId,
+    pub name: String,
+    pub order: usize,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UpdateData {
     pub header: HeaderData,
     pub seed: u32,
     pub turn: u32,
-    pub factors: Factors
+    pub factors: Factors,
+    pub players: Vec<PlayerData>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -202,7 +226,7 @@ pub enum MessageData {
     Create(UnitData),    // unit created
     Move(MoveData),      // unit moved
     Chat(ChatData),      // chat message
-    Update(TerrainData), // update response
+    Update(UpdateData), // update response
     Refresh(EmptyData),  // request update
 }
 
@@ -211,7 +235,7 @@ message!(Confirm,ConfirmMessage(ConfirmData));
 message!(Create,CreateMessage(UnitData));
 message!(Move,MoveMessage(MoveData));
 message!(Chat,ChatMessage(ChatData));
-message!(Update,UpdateMessage(TerrainData));
+message!(Update,UpdateMessage(UpdateData));
 message!(Refresh,RefreshMessage(EmptyData));
 
 impl Plugin for MessagePlugin {
@@ -251,45 +275,55 @@ macro_rules! require_other {
 }
 
 macro_rules! require_registered {
-    ( $message: ident ) => { require!(($message.id().is_some()),"Must be registered") }
+    ( $message: ident ) => { require!(($message.is_registered()),"Must be registered") }
 }
 
-static MESSAGES: Lazy<Mutex<HashSet<MessageId>>> = Lazy::new(|| Mutex::new(HashSet::new()));
-
-pub fn registered(id: &MessageId) -> bool {
-    MESSAGES.lock()
-            .expect("failed to lock registration list")
-            .contains(id)
+macro_rules! require_unapplied {
+    ( $message: ident ) => { require!((!$message.is_applied()),"Must be unapplied") }
 }
 
-pub fn register(id: &MessageId) {
-    MESSAGES.lock()
-            .expect("failed to lock registration list")
-            .insert(id.clone());
+impl PlayerData {
+    pub fn new(id: PlayerId, name: String) -> Self {
+        Self { id, name, order: 0 }
+    }
+    pub fn ordered(mut self, order: usize) -> Self {
+        self.order = order;
+        self
+    }
 }
 
 impl JoinMessage {
-    pub fn apply(&self, network: &mut NetworkState) {
+    pub fn apply(&self, network: &mut NetworkState, state: &State) {
         require_server!(network);
+        require_unapplied!(self);
+
+        debug!("applying join message");
+
         if let Some(conn) = network.stop_waiting(self.value().code) {
             let player = network.players.insert(
                 self.sender(),
                 conn,
                 self.value().name.clone(),
             );
-            warn!("player joined: {} ({})",player.name,player.id);
+            network.send_update_event(state);
         }
+        self.set_applied();
     }
 }
 
 impl ConfirmMessage {
     pub fn apply(&self, network: &mut NetworkState, gui: &mut GuiState) {
         require_registered!(self);
+        require_unapplied!(self);
+
+        debug!("applying confirm message");
+
         network.send_join_event(self.value().code);
         gui.add_message(
             "Server".into(),
             self.value().motd.clone(),
         );
+        self.set_applied();
     }
 }
 
@@ -297,17 +331,18 @@ impl CreateMessage {
     pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
         require_other!(network,self.sender()); // cannot apply to self
         require_registered!(self);
+        require_unapplied!(self);
 
-        // TODO: streamline this add process
-        // add new unit to tilemap and unit map if it doesn't exist
+        debug!("applying create message");
+
         let data = self.value();
-        let mut unit = data.unit.clone();
+        let mut unit = data.unit.clone().rebuild(&state);
         let point = unit.position().clone();
-
-        *(unit.texture_mut()) = state.textures.get(Label::Unit);
-
         unit.insert(map);
         state.units.add(point,unit);
+
+        self.set_applied();
+
     }
 }
 
@@ -315,6 +350,10 @@ impl MoveMessage {
     pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
         require_other!(network,self.sender()); // cannot apply to self
         require_registered!(self);
+        require_unapplied!(self);
+
+        debug!("applying move message");
+
         let data = self.value();
         for (point,moves) in data.moves.iter().group_by(|m| m.1).into_iter() {
             let movement = moves
@@ -323,22 +362,38 @@ impl MoveMessage {
                 .collect();
             state.units.transfer(map,movement,point);
         }
+
+        self.set_applied();
     }
 }
 
 impl ChatMessage {
     pub fn apply(&self, network: &NetworkState, gui: &mut GuiState) {
         require_registered!(self);
+        require_unapplied!(self);
+
+        debug!("applying chat message");
+
         gui.add_message(
             self.name(),
             self.value().message.clone());
+
+        self.set_applied();
     }
 }
 
 impl UpdateMessage {
-    pub fn apply(&self, network: &NetworkState, state: &mut State) {
+    pub fn apply(&self, network: &mut NetworkState, state: &mut State) {
         require_registered!(self);
+        require_unapplied!(self);
 
-        state.sync(self.value().clone());
+        debug!("applying update message");
+
+        let data = self.value();
+
+        network.set_players(data.players.clone());
+        state.sync(data);
+
+        self.set_applied();
     }
 }

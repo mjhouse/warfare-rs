@@ -4,7 +4,7 @@ use crate::state::{Action, State, Flags};
 use crate::systems::selection::Selection;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
-use crate::generation::{PlayerId,Id};
+use crate::generation::{PlayerId,Id,Specialty};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSettings};
@@ -405,15 +405,15 @@ fn gui_display_system(
 
                 ui.horizontal(|ui| {
                     if ui.button("Infantry").clicked() {
-                        selection.place_request(gui.unit_name.clone());
+                        selection.place_request(gui.unit_name.clone(),Specialty::Infantry);
                     }
 
                     if ui.button("Armor").clicked() {
-                        selection.place_request(gui.unit_name.clone());
+                        selection.place_request(gui.unit_name.clone(),Specialty::Armor);
                     }
 
                     if ui.button("Militia").clicked() {
-                        selection.place_request(gui.unit_name.clone());
+                        selection.place_request(gui.unit_name.clone(),Specialty::Militia);
                     }
                 });
 

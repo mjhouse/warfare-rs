@@ -20,7 +20,13 @@ pub struct SelectionPlugin;
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub enum SelectionFlag {
     Place,
-    Hovering,a
+    Hovering,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlaceRequest {
+    pub name: String,
+    pub specialty: Specialty,
 }
 
 pub struct Selection {
@@ -54,7 +60,7 @@ pub struct Selection {
     pub units: HashSet<Id>,
 
     /// name to give to the next placed unit
-    pub unit_name: String,
+    pub request: Option<PlaceRequest>,
 }
 
 impl Selection {
@@ -89,8 +95,8 @@ impl Selection {
         self.flags.get(SelectionFlag::Place)
     }
 
-    pub fn place_request(&mut self, name: String) -> bool {
-        self.unit_name = name;
+    pub fn place_request(&mut self, name: String, specialty: Specialty) -> bool {
+        self.request = Some(PlaceRequest { name, specialty });
         self.flags.set(SelectionFlag::Place)
     }
 
@@ -112,7 +118,7 @@ impl Default for Selection {
             button: MouseButton::Left,
             release: KeyCode::Escape,
             units: HashSet::new(),
-            unit_name: "".into(),
+            request: None,
         }
     }
 }
@@ -298,21 +304,25 @@ fn selected_place_system(
 
     if selection.place_requested() {
         if inputs.just_pressed(selection.button) {
-            if let Some(_) = state.areas.get(&selection.hovered) {
-                let point: Point = selection.hovered.into();
-                
-                // add a unit to the map
-                let unit = Unit::new(network.id())
-                    .with_name(selection.unit_name.clone())
-                    .with_player(network.id(),network.name())
-                    .with_specialty(Specialty::Infantry)
-                    .with_soldiers(100)
-                    .with_position(point.clone())
-                    .build(&state);
+            if let Some(PlaceRequest { name, specialty }) = selection.request.take() {
+                if let Some(_) = state.areas.get(&selection.hovered) {
+                    let point: Point = selection.hovered.into();
+                    
+                    if let Some(data) = network.player_data() {
+                        // add a unit to the map
+                        let unit = Unit::new(network.id())
+                            .with_name(name)
+                            .with_player(data)
+                            .with_specialty(specialty)
+                            .with_soldiers(100)
+                            .with_position(point.clone())
+                            .build(&state);
 
-                unit.insert(&mut tilemap);
-                state.units.add(point,unit.clone());
-                network.send_create_event(unit);
+                        unit.insert(&mut tilemap);
+                        state.units.add(point,unit.clone());
+                        network.send_create_event(unit);
+                    }
+                }
             }
             selection.clear_flags();
         }

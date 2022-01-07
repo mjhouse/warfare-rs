@@ -4,6 +4,7 @@ use bevy::asset::{AssetServer, HandleUntyped};
 use bevy::sprite::TextureAtlas;
 
 use crate::generation::Soil;
+use crate::generation::Specialty;
 
 pub enum Label {
     ShallowWater,
@@ -21,8 +22,13 @@ pub enum Label {
     Chalk,
     Loam,
     Blank,
-    Unit,
     Marker,
+    Infantry,
+    Armor,
+    Militia,
+    Medical,
+    Logistics,
+    Mechanic,
 }
 
 impl Label {
@@ -47,8 +53,13 @@ impl Label {
             Chalk => "chalk",
             Loam => "loam",
             Blank => "blank",
-            Unit => "units/infantry",
             Marker => "marker",
+            Infantry => "units/infantry/infantry",
+            Armor => "units/armor/armor",
+            Militia => "units/militia/militia",
+            Medical => "units/medical/medical",
+            Logistics => "units/logistics/logistics",
+            Mechanic => "units/mechanic/mechanic",
         }
     }
 }
@@ -91,21 +102,21 @@ impl Textures {
             "units/veteran/veteran_1",
             "units/veteran/veteran_2",
             "units/veteran/veteran_3",
-            "units/armor",
-            "units/armor/armor_blue",
-            "units/armor/armor_green",
-            "units/armor/armor_red",
-            "units/armor/armor_yellow",
-            "units/infantry",
-            "units/infantry/infantry_blue",
-            "units/infantry/infantry_green",
-            "units/infantry/infantry_red",
-            "units/infantry/infantry_yellow",
-            "units/militia",
-            "units/militia/militia_blue",
-            "units/militia/militia_green",
-            "units/militia/militia_red",
-            "units/militia/militia_yellow",
+            "units/armor/armor_0",
+            "units/armor/armor_1",
+            "units/armor/armor_2",
+            "units/armor/armor_3",
+            "units/armor/armor_4",
+            "units/infantry/infantry_0",
+            "units/infantry/infantry_1",
+            "units/infantry/infantry_2",
+            "units/infantry/infantry_3",
+            "units/infantry/infantry_4",
+            "units/militia/militia_0",
+            "units/militia/militia_1",
+            "units/militia/militia_2",
+            "units/militia/militia_3",
+            "units/militia/militia_4",
         ];
 
         self.textures = labels
@@ -118,6 +129,11 @@ impl Textures {
         self.textures[texture.as_str()]
     }
 
+    pub fn variant(&self, texture: Label, v: u8) -> usize {
+        let key = format!("{}_{}",texture.as_str(),v);
+        self.textures[key.as_str()]
+    }
+
     pub fn soil(&self, soil: &Soil) -> usize {
         match soil {
             Soil::Clay => self.get(Label::Clay),
@@ -127,6 +143,17 @@ impl Textures {
             Soil::Chalk => self.get(Label::Chalk),
             Soil::Loam => self.get(Label::Loam),
             Soil::None => self.get(Label::Blank),
+        }
+    }
+
+    pub fn unit(&self, unit: &Specialty, v: u8) -> usize {
+        match unit {
+            Specialty::Infantry => self.variant(Label::Infantry,v),
+            Specialty::Armor => self.variant(Label::Armor,v),
+            Specialty::Militia => self.variant(Label::Militia,v),
+            Specialty::Medical => self.variant(Label::Medical,v),
+            Specialty::Logistics => self.variant(Label::Logistics,v),    
+            Specialty::Mechanic => self.variant(Label::Mechanic,v),
         }
     }
 }
