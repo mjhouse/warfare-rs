@@ -23,7 +23,7 @@ use bevy_spicy_networking::{
 
 use crate::state::{traits::*, State, Flags};
 use crate::networking::messages::{self,*};
-use crate::generation::{Unit,id::*};
+use crate::generation::{Unit,id::*,Change};
 use crate::generation::Factors;
 use crate::resources::Label;
 use crate::objects::Selection;
@@ -267,6 +267,17 @@ impl NetworkEvents {
         ));
     }
 
+    pub fn change_event(&mut self, sender: PlayerId, name: String, changes: Vec<Change>) {
+        self.messages.push((None,
+            MessageData::Change(
+                ChangeData {
+                    header: HeaderData::new(sender,name),
+                    changes,
+                }
+            )
+        ));
+    }
+
 }
 
 impl NetworkState {
@@ -323,6 +334,11 @@ impl NetworkState {
     pub fn send_refresh_event(&mut self) {
         self.flags.set(NetworkFlag::Send);
         self.events.refresh_event(self.id(), self.name());
+    }
+
+    pub fn send_change_event(&mut self, changes: Vec<Change>) {
+        self.flags.set(NetworkFlag::Send);
+        self.events.change_event(self.id(), self.name(), changes);
     }
 
     pub fn host_requested(&self) -> bool {
@@ -646,6 +662,7 @@ fn send_system(
             MessageData::Create(v)  => network.send_client_message(&client,CreateMessage::new(v)),
             MessageData::Move(v)    => network.send_client_message(&client,MoveMessage::new(v)),
             MessageData::Refresh(v) => network.send_client_message(&client,RefreshMessage::new(v)),
+            MessageData::Change(v)  => network.send_client_message(&client,ChangeMessage::new(v)),
             MessageData::Join(v)    => network.send_client_message(&client,JoinMessage::new(v)),
             _ => (),
         };
@@ -663,6 +680,7 @@ fn receive_system(
 
     mut join_messages: EventReader<NetworkData<JoinMessage>>,
     mut confirm_messages: EventReader<NetworkData<ConfirmMessage>>,
+    mut change_messages: EventReader<NetworkData<ChangeMessage>>,
     mut create_messages: EventReader<NetworkData<CreateMessage>>,
     mut move_messages: EventReader<NetworkData<MoveMessage>>,
     mut chat_messages: EventReader<NetworkData<ChatMessage>>,
@@ -677,13 +695,19 @@ fn receive_system(
 
     for message in create_messages.iter().filter(|m| !m.is_applied()) {
         debug!("received create message");
-        message.apply(&network,&mut map, &mut state);
+        message.apply(&network, &mut map, &mut state);
+        rebroadcast!(network,server,message);
+    }
+
+    for message in change_messages.iter().filter(|m| !m.is_applied()) {
+        debug!("received change message");
+        message.apply(&network, &mut map, &mut state);
         rebroadcast!(network,server,message);
     }
 
     for message in move_messages.iter().filter(|m| !m.is_applied()) {
         debug!("received move message");
-        message.apply(&network,&mut map, &mut state);
+        message.apply(&network, &mut map, &mut state);
         rebroadcast!(network,server,message);
     }
 

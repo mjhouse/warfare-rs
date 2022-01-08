@@ -8,6 +8,7 @@ use crate::state::State;
 use crate::resources::Label;
 use rand_pcg::Pcg64;
 use crate::networking::messages::PlayerData;
+use rand::{Rng,rngs::ThreadRng};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Specialty {
@@ -66,11 +67,15 @@ impl Soldier {
         *value = value.saturating_sub(v);
     }
 
-    pub fn actions(&self) -> u8 {
+    pub fn actions(&self) -> (u8, u8) {
+        self.actions
+    }
+
+    pub fn current_actions(&self) -> u8 {
         self.actions.0
     }
 
-    pub fn max_actions(&self) -> u8 {
+    pub fn maximum_actions(&self) -> u8 {
         self.actions.1
     }
 
@@ -102,6 +107,21 @@ impl Soldier {
         self.health
     }
 
+    pub fn set_health(&mut self, v: i16) {
+        self.health.0 = (self.health.0 as i16)
+            .saturating_add(v)
+            .max(0)
+            .min(255) as u8;
+    }
+
+    pub fn current_health(&self) -> u8 {
+        self.health.0
+    }
+
+    pub fn maximum_health(&self) -> u8 {
+        self.health.1
+    }
+
     pub fn morale(&self) -> (u8, u8) {
         self.morale
     }
@@ -112,6 +132,14 @@ impl Soldier {
 
     pub fn attack(&self) -> (u8, u8) {
         self.attack
+    }
+
+    pub fn current_attack(&self) -> u8 {
+        self.attack.0
+    }
+
+    pub fn maximum_attack(&self) -> u8 {
+        self.attack.1
     }
 }
 
@@ -140,6 +168,37 @@ pub struct Unit {
 
     /// soldiers in this unit
     soldiers: Vec<Soldier>,
+}
+
+/// Combined units for unit-to-unit interactions:
+///     * combat
+///     * merging
+///     * transfer
+///     * divide
+///     * etc.
+pub struct Units<'a> {
+    /// aggregated units
+    units: Vec<&'a Unit>,
+}
+
+/// Collection of changes to apply to units
+pub struct Changes {
+    changes: Vec<Change>,
+}
+
+/// A single change for a particular unit
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Change {
+    pub id: Id,
+    pub point: Point,
+    pub action: ChangeType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ChangeType {
+    Health(i16),
+    Morale(i16),
+    Attack(i16),
 }
 
 impl Unit {
@@ -228,11 +287,39 @@ impl Unit {
         }
     }
 
+    pub fn set_health(&mut self, v: i16) {
+        for soldier in self.soldiers.iter_mut() {
+            soldier.set_health(v);
+        }
+    }
+
+    pub fn health(&self) -> u8 {
+        let s = &self.soldiers;
+        let v: usize = s
+            .iter()
+            .map(Soldier::current_health)
+            .map(|v| v as usize)
+            .sum::<usize>()
+            / s.len();
+        v.min(255) as u8
+    }
+
+    pub fn attack(&self) -> u8 {
+        let s = &self.soldiers;
+        let v: usize = s
+            .iter()
+            .map(Soldier::current_attack)
+            .map(|v| v as usize)
+            .sum::<usize>()
+            / s.len();
+        v.min(255) as u8
+    }
+
     pub fn actions(&self) -> u8 {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::actions)
+            .map(Soldier::current_actions)
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();
@@ -243,7 +330,7 @@ impl Unit {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::max_actions)
+            .map(Soldier::maximum_actions)
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();
@@ -254,12 +341,12 @@ impl Unit {
         &self.soldiers
     }
 
-    pub fn specialty(&self) -> Specialty {
-        self.specialty.clone()
+    pub fn specialty(&self) -> &Specialty {
+        &self.specialty
     }
 
-    pub fn player_id(&self) -> PlayerId {
-        self.player_id.clone()
+    pub fn player_id(&self) -> &PlayerId {
+        &self.player_id
     }
 
     pub fn player_name(&self) -> String {
@@ -268,6 +355,93 @@ impl Unit {
 
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+}
+
+impl<'a> Units<'a> {
+    pub fn aggregate(units: Vec<&'a Unit>) -> Self {
+        assert!(units.len() > 0);
+        Self { 
+            units: units,
+        }
+    }
+
+    pub fn attack(&self, other: &Units<'_>) -> Vec<Change> {
+        let mut atk1 = self.current_attack();
+        let mut atk2 = other.current_attack();
+        let var1 = rand::thread_rng().gen::<u8>() / 10;
+        let var2 = rand::thread_rng().gen::<u8>() / 10;
+
+        atk1 = atk1.saturating_add(var1);
+        atk2 = atk2.saturating_add(var2);
+        
+        if atk1 > atk2 {
+            let mut changes1 = self
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-50))
+                .collect::<Vec<Change>>();
+            let mut changes2 = other
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-100))
+                .collect::<Vec<Change>>();
+            changes1.append(&mut changes2);
+            changes1
+        }
+        else if atk1 < atk2 {
+            let mut changes1 = self
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-100))
+                .collect::<Vec<Change>>();
+            let mut changes2 = other
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-50))
+                .collect::<Vec<Change>>();
+            changes1.append(&mut changes2);
+            changes1
+        }
+        else {
+            let mut changes1 = self
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-50))
+                .collect::<Vec<Change>>();
+            let mut changes2 = other
+                .units()
+                .iter()
+                .map(|u| Change::health(u,-50))
+                .collect::<Vec<Change>>();
+            changes1.append(&mut changes2);
+            changes1
+        }
+    }
+
+    pub fn current_attack(&self) -> u8 {
+        let s = &self.units;
+        let v: usize = s
+            .iter()
+            .map(|u| u.attack())
+            .map(|v| v as usize)
+            .sum::<usize>()
+            / s.len();
+        v.min(255) as u8
+    }
+
+    pub fn units(&self) -> Vec<&Unit> {
+        self.units.clone()
+    }
+}
+
+impl Change {
+    pub fn health(unit: &Unit, change: i16) -> Self {
+        Self {
+            id: *unit.id(),
+            point: *unit.position(),
+            action: ChangeType::Health(change),
+        }
     }
 }
 

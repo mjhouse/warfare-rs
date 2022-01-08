@@ -19,7 +19,7 @@ use bevy_spicy_networking::{
 };
 
 use crate::generation::Factors;
-use crate::generation::{Unit,id::*};
+use crate::generation::{Unit,id::*,Change};
 use crate::objects::Point;
 
 use crate::systems::network::NetworkState;
@@ -172,6 +172,12 @@ pub struct EmptyData {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChangeData {
+    pub header: HeaderData,
+    pub changes: Vec<Change>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JoinData {
     pub header: HeaderData,
     pub name: String,
@@ -222,15 +228,17 @@ pub struct UpdateData {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum MessageData {
     Join(JoinData),      // player joined
+    Change(ChangeData),  // apply changes to units
     Confirm(ConfirmData),// confirm connection
     Create(UnitData),    // unit created
     Move(MoveData),      // unit moved
     Chat(ChatData),      // chat message
-    Update(UpdateData), // update response
+    Update(UpdateData),  // update response
     Refresh(EmptyData),  // request update
 }
 
 message!(Join,JoinMessage(JoinData));
+message!(Change,ChangeMessage(ChangeData));
 message!(Confirm,ConfirmMessage(ConfirmData));
 message!(Create,CreateMessage(UnitData));
 message!(Move,MoveMessage(MoveData));
@@ -241,6 +249,7 @@ message!(Refresh,RefreshMessage(EmptyData));
 impl Plugin for MessagePlugin {
     fn build(&self, app: &mut AppBuilder) {
         register!(app,JoinMessage);
+        register!(app,ChangeMessage);
         register!(app,ConfirmMessage);
         register!(app,CreateMessage);
         register!(app,MoveMessage);
@@ -311,6 +320,19 @@ impl JoinMessage {
     }
 }
 
+impl ChangeMessage {
+    pub fn apply(&self, network: &NetworkState, map: &mut Tilemap, state: &mut State) {
+        // require_other!(network,self.sender()); // cannot apply to self
+        require_registered!(self);
+        require_unapplied!(self);
+
+        debug!("applying change message");
+
+        state.units.execute(map,&self.value().changes);
+        self.set_applied();
+    }
+}
+
 impl ConfirmMessage {
     pub fn apply(&self, network: &mut NetworkState, gui: &mut GuiState) {
         require_registered!(self);
@@ -358,7 +380,10 @@ impl MoveMessage {
         for (point,moves) in data.moves.iter().group_by(|m| m.1).into_iter() {
             let movement = moves
                 .into_iter()
-                .map(|m| (m.0,m.2))
+                .map(|m| {
+                    warn!("moving {} to {:?}",m.0,point);
+                    (m.0,m.2)
+                })
                 .collect();
             state.units.transfer(map,movement,point);
         }

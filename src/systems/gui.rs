@@ -257,8 +257,7 @@ fn gui_display_system(
                                 let (m, mm) = soldier.morale();
                                 let (d, md) = soldier.defense();
                                 let (a, ma) = soldier.attack();
-                                let p = soldier.actions();
-                                let mp = soldier.max_actions();
+                                let (p, mp) = soldier.actions();
     
                                 ui.group(|ui| {
                                     ui.set_width(ui.available_width());

@@ -8,7 +8,7 @@ use crate::math::MidRound;
 use crate::state::{traits::*, Action, State};
 use crate::systems::camera::Camera;
 use crate::behavior::Pathfinder;
-use crate::generation::id::Id;
+use crate::generation::{Id,Units};
 use crate::resources::Label;
 use crate::systems::network::NetworkState;
 use crate::networking::messages::*;
@@ -228,7 +228,7 @@ fn selected_highlight_system(
 
     if window.cursor_position().is_some() {
         // if the selection button has just been pressed, then select the
-        // top unit at the position
+        // top unit at the position (or a preselected list of units)
         if inputs.just_pressed(selection.button) {
             selection.selected = selection.hovered;
             if selection.units.is_empty() {
@@ -239,7 +239,7 @@ fn selected_highlight_system(
             }
             else {
                 state.units.select_ids(
-                    network.id(),
+                    &network.id(),
                     &selection.selected.into(),
                     selection.units.drain().collect(),
                 );
@@ -248,7 +248,23 @@ fn selected_highlight_system(
         // if the selection button has just been released, then deselect
         // whatever units are selected
         else if inputs.just_released(selection.button) {
+            let player = network.id();
+            let target = selection.hovered.into();
             let selected = state.units.selected();
+
+            if state.units.has_enemy(&target,&player) {
+                let friends = state.units.selected_units();
+                if friends.len() > 0 {
+                    let enemies = state.units.targeted_units(&target,&player);
+
+                    let friendly = Units::aggregate(friends);
+                    let enemy = Units::aggregate(enemies);
+    
+                    let result = friendly.attack(&enemy);
+                    network.send_change_event(result);
+                }
+            }
+
             if !selected.is_empty() {
                 network.send_move_event(&state.units.selected());
             }
@@ -261,16 +277,20 @@ fn selected_highlight_system(
         else if inputs.pressed(selection.button)
         {
             if selection.dragging != selection.hovered && state.units.has_selection() {
-                let impedance = state.impedance_map();
-                
-                selection.clear_path(&mut map,layer);
-                selection.path = state.units.pathto(
-                    &mut map,
-                    &impedance,
-                    &selection.hovered.into(),
-                    layer,
-                    blank
-                );
+                let player = network.id();
+                let target = selection.hovered.into();
+
+                if !state.units.has_enemy(&target,&player) {
+                    let impedance = state.impedance_map();
+                    selection.clear_path(&mut map,layer);
+                    selection.path = state.units.pathto(
+                        &mut map,
+                        &impedance,
+                        &target,
+                        layer,
+                        blank
+                    );
+                }
             }
         }
 

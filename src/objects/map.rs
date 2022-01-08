@@ -1,5 +1,4 @@
-use crate::generation::id::{Id,PlayerId};
-use crate::generation::Unit;
+use crate::generation::{Unit,Change,ChangeType,Id,PlayerId};
 use crate::objects::Point;
 use crate::state::traits::HasId;
 use crate::state::Context;
@@ -13,6 +12,7 @@ use bevy_tilemap::Tilemap;
 use bevy_tilemap::Tile;
 
 use indexmap::IndexMap;
+use log::*;
 
 macro_rules! point {
     ($i:expr) => { Point::from_index($i as i32) }
@@ -133,6 +133,21 @@ impl Position {
         self.units.contains_key(id)
     }
 
+    /// check if the position contains enemies
+    pub fn enemies(&self, id: &PlayerId) -> bool {
+        self.units
+            .iter()
+            .any(|(_,v)| v.player_id() != id)
+    }
+
+    pub fn targeted_units(&self, id: &PlayerId) -> Vec<&Unit> {
+        self.units
+            .iter()
+            .map(|(_,v)| v)
+            .filter(|v| v.player_id() != id)
+            .collect()
+    }
+
     /// get a reference to the top unit
     pub fn top(&self) -> Option<&Unit> {
         self.units.last().map(|p| p.1)
@@ -143,7 +158,7 @@ impl Position {
         self.units.get(id)
     }
 
-    /// get a mutablereference to a particular unit
+    /// get a mutable reference to a particular unit
     pub fn id_mut(&mut self, id: &Id) -> Option<&mut Unit> {
         self.units.get_mut(id)
     }
@@ -180,6 +195,78 @@ impl Map {
         self.selected.clone()
     }
 
+    pub fn selected_units(&self) -> Vec<&Unit> {
+        self.selected
+            .iter()
+            .filter_map(|s| self.get_unit(s))
+            .collect()
+    }
+
+    pub fn has_enemy(&self, point: &Point, player: &PlayerId) -> bool {
+        self.get(point)
+            .map(|p| p.enemies(player))
+            .unwrap_or(false)
+    }
+
+    pub fn targeted_units(&self, point: &Point, player: &PlayerId) -> Vec<&Unit> {
+        self.get(point)
+            .map(|p| p.targeted_units(player))
+            .unwrap_or(Vec::new())
+    }
+
+    pub fn find(&mut self, id: &Id) -> Option<&mut Unit> {
+        self.positions
+            .iter_mut()
+            .map(|p| p
+                .list_mut()
+                .into_iter())
+            .flatten()
+            .find(|u| u.id() == id)
+    }
+
+    pub fn execute(&mut self, map: &mut Tilemap, changes: &Vec<Change>) {
+        println!("------------------------------------------------------");
+        println!("applying {} changes",changes.len());
+        let mut remove: Vec<(Id,Point)> = vec![];
+        for change in changes {
+            if let Some(unit) = self.find(&change.id) {
+                match change.action {
+                    ChangeType::Health(v) => {
+                        println!("unit \"{}\" health changed: {}",unit.name(), v);
+                        unit.set_health(v)
+                    },
+                    _ => ()
+                };
+                if unit.health() == 0 {
+                    println!("unit \"{}\" destroyed",unit.name());
+                    remove.push((
+                        *unit.id(),
+                        *unit.position(),
+                    ))
+                }
+            }
+        }
+
+        println!("selecting tiles");
+        let tiles: Vec<_> = remove
+            .into_iter()
+            .filter_map(|(i,p)| self
+                .get_mut(&p)
+                .map(|o| o.take(i))
+                .flatten()
+                .map(|u| (p,u)))
+            .map(|(p,u)| (p.integers(),*u.layer()))
+            .collect();
+
+        println!("{} tiles selected",tiles.len());
+        // clear the tile locations
+        if let Err(e) = map.clear_tiles(tiles) {
+            log::warn!("{:?}", e);
+        }
+
+        println!("------------------------------------------------------");
+    }
+
     pub fn has_unit(&self, point: &Point, id: &Id) -> bool {
         self.get(point)
             .map(|p| p.contains(id))
@@ -209,7 +296,7 @@ impl Map {
 
     pub fn select_top(&mut self, owner: PlayerId, point: &Point) {
         if let Some(unit) = self.get_top(&point) {
-            if unit.player_id() == owner {
+            if unit.player_id() == &owner {
                 self.selected = vec![Selection::new(&point,unit)];
             }
         }
@@ -232,15 +319,14 @@ impl Map {
     }
 
     pub fn select(&mut self, ids: &Vec<Id>) {
-        self.selected
-            .append(&mut self
-                .get_all_ids(ids)
-                .iter()
-                .map(|u| Selection::new(u.position(),u))
-                .collect());
+        self.selected = self
+            .get_all_ids(ids)
+            .iter()
+            .map(|u| Selection::new(u.position(),u))
+            .collect()
     }
 
-    pub fn select_ids(&mut self, owner: PlayerId, point: &Point, ids: Vec<Id>) {
+    pub fn select_ids(&mut self, owner: &PlayerId, point: &Point, ids: Vec<Id>) {
         self.selected
             .append(&mut self
                 .get_ids(&point,&ids)
@@ -289,6 +375,7 @@ impl Map {
     }
 
     pub fn move_selection(&mut self, map: &mut Tilemap, point: &Point) {
+        warn!("moving to {:?}",point);
         self.hide(map, &self.selected);
         self.moveto(point);
         self.show(map, &self.selected);

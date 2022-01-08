@@ -23,6 +23,6 @@ pub use area::{bounds, Area, Attribute};
 
 pub use marker::{Cursor, Marker};
 
-pub use unit::{Specialty, Unit};
+pub use unit::{Specialty, Unit, Units, Change, ChangeType};
 
 pub use id::{PlayerId,Id};
