@@ -216,15 +216,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_id_generated() {
-        let a1 = Area::create();
-        let a2 = Area::create();
-
-        assert_eq!(*a1.id(), 1);
-        assert_eq!(*a2.id(), 2);
-    }
-
-    #[test]
     fn test_percentages_are_capped() {
         let a1 = Area::create()
             .with_moisture(110)

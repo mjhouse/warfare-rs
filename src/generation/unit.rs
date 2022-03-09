@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::generation::{Id, PlayerId, LayerUse, Marker};
-use crate::objects::Name;
-use crate::objects::Point;
+use crate::objects::{Name,Point,Property};
 use crate::state::demographics::{Demographics, Sex};
 use crate::state::traits::*;
 use crate::state::State;
@@ -29,12 +28,12 @@ pub struct Soldier {
     age: u8,           // age in years
     weight: u16,       // weight in kg
     height: u16,       // height in cm
-    actions: (u8, u8), // (value,max)
-    health: (u8, u8),  // (value,max)
-    veteran: (u8, u8), // (value,max)
-    morale: (u8, u8),  // (value,max)
-    defense: (u8, u8), // (value,max)
-    attack: (u8, u8),  // (value,max)
+    actions: Property,
+    health: Property,
+    veteran: Property,
+    morale: Property,
+    defense: Property,
+    attack: Property,
 }
 
 impl Soldier {
@@ -49,34 +48,13 @@ impl Soldier {
             age: demo.age(&sex),
             weight: demo.weight(&sex),
             height: demo.height(&sex),
-            actions: (100, 100),
-            health: (100, 100),
-            veteran: (0, 100),
-            morale: (100, 100),
-            defense: (100, 100),
-            attack: (100, 100),
+            actions: Property::new(100, 0, 100),
+            health: Property::new(100, 0, 100),
+            veteran: Property::new(0, 0, 100),
+            morale: Property::new(100, 0,100),
+            defense: Property::new(100, 0, 100),
+            attack: Property::new(100, 0, 100),
         }
-    }
-
-    pub fn reset_actions(&mut self) {
-        self.actions.0 = self.actions.1;
-    }
-
-    pub fn use_actions(&mut self, v: u8) {
-        let value = &mut self.actions.0;
-        *value = value.saturating_sub(v);
-    }
-
-    pub fn actions(&self) -> (u8, u8) {
-        self.actions
-    }
-
-    pub fn current_actions(&self) -> u8 {
-        self.actions.0
-    }
-
-    pub fn maximum_actions(&self) -> u8 {
-        self.actions.1
     }
 
     pub fn name(&self) -> String {
@@ -103,44 +81,54 @@ impl Soldier {
         self.skill.clone()
     }
 
-    pub fn health(&self) -> (u8, u8) {
-        self.health
+    pub fn actions(&self) -> &Property {
+        &self.actions
     }
 
-    pub fn set_health(&mut self, v: i16) {
-        self.health.0 = (self.health.0 as i16)
-            .saturating_add(v)
-            .max(0)
-            .min(255) as u8;
+    pub fn actions_mut(&mut self) -> &mut Property {
+        &mut self.actions
     }
 
-    pub fn current_health(&self) -> u8 {
-        self.health.0
+    pub fn health(&self) -> &Property {
+        &self.health
     }
 
-    pub fn maximum_health(&self) -> u8 {
-        self.health.1
+    pub fn health_mut(&mut self) -> &mut Property {
+        &mut self.health
     }
 
-    pub fn morale(&self) -> (u8, u8) {
-        self.morale
+    pub fn veteran(&self) -> &Property {
+        &self.veteran
     }
 
-    pub fn defense(&self) -> (u8, u8) {
-        self.defense
+    pub fn veteran_mut(&mut self) -> &mut Property {
+        &mut self.veteran
+    }
+    
+    pub fn morale(&self) -> &Property {
+        &self.morale
     }
 
-    pub fn attack(&self) -> (u8, u8) {
-        self.attack
+    pub fn morale_mut(&mut self) -> &mut Property {
+        &mut self.morale
     }
 
-    pub fn current_attack(&self) -> u8 {
-        self.attack.0
+    pub fn defense(&self) -> &Property {
+        &self.defense
     }
 
-    pub fn maximum_attack(&self) -> u8 {
-        self.attack.1
+    pub fn defense_mut(&mut self) -> &mut Property {
+        &mut self.defense
     }
+
+    pub fn attack(&self) -> &Property {
+        &self.attack
+    }
+
+    pub fn attack_mut(&mut self) -> &mut Property {
+        &mut self.attack
+    }
+
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -277,19 +265,19 @@ impl Unit {
 
     pub fn reset_actions(&mut self) {
         for soldier in self.soldiers.iter_mut() {
-            soldier.reset_actions();
+            soldier.actions_mut().reset();
         }
     }
 
     pub fn use_actions(&mut self, actions: u8) {
         for soldier in self.soldiers.iter_mut() {
-            soldier.use_actions(actions);
+            soldier.actions_mut().update(actions as i64 * -1);
         }
     }
 
     pub fn set_health(&mut self, v: i16) {
         for soldier in self.soldiers.iter_mut() {
-            soldier.set_health(v);
+            soldier.health_mut().set(v);
         }
     }
 
@@ -297,7 +285,7 @@ impl Unit {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::current_health)
+            .map(|s| s.health().val())
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();
@@ -308,7 +296,7 @@ impl Unit {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::current_attack)
+            .map(|s| s.attack().max())
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();
@@ -319,7 +307,7 @@ impl Unit {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::current_actions)
+            .map(|s| s.actions().val())
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();
@@ -330,7 +318,7 @@ impl Unit {
         let s = &self.soldiers;
         let v: usize = s
             .iter()
-            .map(Soldier::maximum_actions)
+            .map(|s| s.actions().max())
             .map(|v| v as usize)
             .sum::<usize>()
             / s.len();

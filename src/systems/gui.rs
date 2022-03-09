@@ -253,11 +253,11 @@ fn gui_display_system(
                             .show(ui, |ui| {
                             ui.add_space(5.);
                             for soldier in unit.soldiers() {
-                                let (h, mh) = soldier.health();
-                                let (m, mm) = soldier.morale();
-                                let (d, md) = soldier.defense();
-                                let (a, ma) = soldier.attack();
-                                let (p, mp) = soldier.actions();
+                                let (h, _, mh) = soldier.health().inner();
+                                let (m, _, mm) = soldier.morale().inner();
+                                let (d, _, md) = soldier.defense().inner();
+                                let (a, _, ma) = soldier.attack().inner();
+                                let (p, _, mp) = soldier.actions().inner();
     
                                 ui.group(|ui| {
                                     ui.set_width(ui.available_width());
